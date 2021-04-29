@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> Download CodeMirror addons using correct GitHub RAW links (finally); use try/catch to handle error from Space key unmap when mult. code notes open in Trilium tabs
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: https://codemirror.net/LICENSE
 
@@ -89,6 +92,7 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
 };
 
 });
+<<<<<<< HEAD
 =======
 
 
@@ -1708,3 +1712,5 @@ CodeMirror.overlayMode = function(base, overlay, combine) {
 </html>
 
 >>>>>>> Add vim changes for CodeMirror (again)
+=======
+>>>>>>> Download CodeMirror addons using correct GitHub RAW links (finally); use try/catch to handle error from Space key unmap when mult. code notes open in Trilium tabs

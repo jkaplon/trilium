@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> Download CodeMirror addons using correct GitHub RAW links (finally); use try/catch to handle error from Space key unmap when mult. code notes open in Trilium tabs
 .CodeMirror-dialog {
   position: absolute;
   left: 0; right: 0;
@@ -31,6 +34,7 @@
 .CodeMirror-dialog button {
   font-size: 70%;
 }
+<<<<<<< HEAD
 =======
 
 
@@ -1326,3 +1330,5 @@
 </html>
 
 >>>>>>> Add vim changes for CodeMirror (again)
+=======
+>>>>>>> Download CodeMirror addons using correct GitHub RAW links (finally); use try/catch to handle error from Space key unmap when mult. code notes open in Trilium tabs
