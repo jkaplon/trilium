@@ -1,7 +1,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> Download CodeMirror addons using correct GitHub RAW links (finally); use try/catch to handle error from Space key unmap when mult. code notes open in Trilium tabs
+=======
+>>>>>>> 35291902a133060bb8e6a86bf500cdd5ebe320bf
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: https://codemirror.net/LICENSE
 
@@ -103,6 +106,7 @@
     } while (nextItem);
   }
 });
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
 
@@ -1754,3 +1758,5 @@
 >>>>>>> Add vim changes for CodeMirror (again)
 =======
 >>>>>>> Download CodeMirror addons using correct GitHub RAW links (finally); use try/catch to handle error from Space key unmap when mult. code notes open in Trilium tabs
+=======
+>>>>>>> 35291902a133060bb8e6a86bf500cdd5ebe320bf
