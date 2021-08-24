@@ -7,6 +7,7 @@ import CloseDetailButtonWidget from "../widgets/mobile_widgets/close_detail_butt
 import MobileDetailMenuWidget from "../widgets/mobile_widgets/mobile_detail_menu.js";
 import ScreenContainer from "../widgets/mobile_widgets/screen_container.js";
 import ScrollingContainer from "../widgets/containers/scrolling_container.js";
+import QuickSearchWidget from "../widgets/quick_search.js";
 
 const MOBILE_CSS = `
 <style>
@@ -93,6 +94,7 @@ export default class MobileLayout {
                 .css('padding-left', 0)
                 .css('contain', 'content')
                 .child(new MobileGlobalButtonsWidget())
+                .child(new QuickSearchWidget())
                 .child(new NoteTreeWidget("main")
                     .cssBlock(FANCYTREE_CSS)))
             .child(new ScreenContainer("detail", "column")

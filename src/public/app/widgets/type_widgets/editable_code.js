@@ -57,6 +57,7 @@ export default class EditableCodeTypeWidget extends TypeWidget {
             gutters: ["CodeMirror-lint-markers"],
             lineNumbers: true,
             keyMap: "vim",
+            styleActiveLine: true,
             extraKeys: {"Enter": "newlineAndIndentContinueMarkdownList"},
             tabindex: 300,
             // we linewrap partly also because without it horizontal scrollbar displays only when you scroll
