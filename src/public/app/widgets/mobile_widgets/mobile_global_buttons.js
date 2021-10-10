@@ -1,4 +1,5 @@
 import BasicWidget from "../basic_widget.js";
+import MobileQuickSearchWidget from "./mobile_quick_search.js";
 
 const WIDGET_TPL = `
 <div id="global-buttons">
@@ -49,6 +50,10 @@ class MobileGlobalButtonsWidget extends BasicWidget {
     doRender() {
         this.$widget = $(WIDGET_TPL);
         this.overflowing();
+
+        const mobileQuickSearchWidget = new MobileQuickSearchWidget();
+        this.child(mobileQuickSearchWidget);
+        this.$widget.append(mobileQuickSearchWidget.render());
     }
 }
 
