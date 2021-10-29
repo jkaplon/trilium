@@ -5,8 +5,8 @@ const sql = require('./sql');
 const utils = require('./utils');
 const optionService = require('./options');
 const port = require('./port');
-const Option = require('../entities/option');
-const TaskContext = require('./task_context.js');
+const Option = require('../becca/entities/option');
+const TaskContext = require('./task_context');
 const migrationService = require('./migration');
 const cls = require('./cls');
 const config = require('./config');
@@ -32,14 +32,13 @@ function isDbInitialized() {
 
 async function initDbConnection() {
     if (!isDbInitialized()) {
-        log.info(`DB not initialized, please visit setup page` + (utils.isElectron() ? '' : ` - http://[your-server-host]:${await port} to see instructions on how to initialize Trilium.`));
+        log.info(`DB not initialized, please visit setup page` +
+            (utils.isElectron() ? '' : ` - http://[your-server-host]:${await port} to see instructions on how to initialize Trilium.`));
 
         return;
     }
 
     await migrationService.migrateIfNecessary();
-
-    require('./options_init').initStartupOptions();
 
     sql.execute('CREATE TEMP TABLE "param_list" (`paramId` TEXT NOT NULL PRIMARY KEY)');
 
@@ -63,8 +62,10 @@ async function createInitialDatabase(username, password, theme) {
     sql.transactional(() => {
         sql.executeScript(schema);
 
-        const Note = require("../entities/note");
-        const Branch = require("../entities/branch");
+        require("../becca/becca_loader").load();
+
+        const Note = require("../becca/entities/note");
+        const Branch = require("../becca/entities/branch");
 
         rootNote = new Note({
             noteId: 'root',

@@ -74,39 +74,39 @@ export default class Entrypoints extends Component {
 
         await ws.waitForMaxKnownEntityChangeId();
 
-        const hoistedNoteId = appContext.tabManager.getActiveTabContext()
-            ? appContext.tabManager.getActiveTabContext().hoistedNoteId
+        const hoistedNoteId = appContext.tabManager.getActiveContext()
+            ? appContext.tabManager.getActiveContext().hoistedNoteId
             : 'root';
 
-        await appContext.tabManager.openTabWithNote(note.noteId, true, null, hoistedNoteId);
+        await appContext.tabManager.openContextWithNote(note.noteId, true, null, hoistedNoteId);
 
-        appContext.triggerEvent('focusAndSelectTitle');
+        appContext.triggerEvent('focusAndSelectTitle', {isNewNote: true});
     }
 
     async toggleNoteHoistingCommand() {
-        const tabContext = appContext.tabManager.getActiveTabContext();
+        const noteContext = appContext.tabManager.getActiveContext();
 
-        if (tabContext.note.noteId === tabContext.hoistedNoteId) {
-            await tabContext.unhoist();
+        if (noteContext.note.noteId === noteContext.hoistedNoteId) {
+            await noteContext.unhoist();
         }
-        else if (tabContext.note.type !== 'search') {
-            await tabContext.setHoistedNoteId(tabContext.note.noteId);
+        else if (noteContext.note.type !== 'search') {
+            await noteContext.setHoistedNoteId(noteContext.note.noteId);
         }
     }
 
     async hoistNoteCommand({noteId}) {
-        const tabContext = appContext.tabManager.getActiveTabContext();
+        const noteContext = appContext.tabManager.getActiveContext();
 
-        if (tabContext.hoistedNoteId !== noteId) {
-            await tabContext.setHoistedNoteId(noteId);
+        if (noteContext.hoistedNoteId !== noteId) {
+            await noteContext.setHoistedNoteId(noteId);
         }
     }
 
     async unhoistCommand() {
-        const activeTabContext = appContext.tabManager.getActiveTabContext();
+        const activeNoteContext = appContext.tabManager.getActiveContext();
 
-        if (activeTabContext) {
-            activeTabContext.unhoist();
+        if (activeNoteContext) {
+            activeNoteContext.unhoist();
         }
     }
 
@@ -129,7 +129,7 @@ export default class Entrypoints extends Component {
     }
 
     reloadFrontendAppCommand() {
-        utils.reloadApp();
+        utils.reloadFrontendApp();
     }
 
     logoutCommand() {
@@ -169,7 +169,7 @@ export default class Entrypoints extends Component {
     async switchToDesktopVersionCommand() {
         utils.setCookie('trilium-device', 'desktop');
 
-        utils.reloadApp();
+        utils.reloadFrontendApp("Switching to desktop version");
     }
 
     async openInWindowCommand({notePath, hoistedNoteId}) {
@@ -194,8 +194,7 @@ export default class Entrypoints extends Component {
     }
 
     async runActiveNoteCommand() {
-        const tabContext = appContext.tabManager.getActiveTabContext();
-        const note = tabContext.note;
+        const {ntxId, note} = appContext.tabManager.getActiveContext();
 
         // ctrl+enter is also used elsewhere so make sure we're running only when appropriate
         if (!note || note.type !== 'code') {
@@ -208,9 +207,9 @@ export default class Entrypoints extends Component {
         } else if (note.mime.endsWith("env=backend")) {
             await server.post('script/run/' + note.noteId);
         } else if (note.mime === 'text/x-sqlite;schema=trilium') {
-            const result = await server.post("sql/execute/" + note.noteId);
+            const {results} = await server.post("sql/execute/" + note.noteId);
 
-            this.triggerEvent('sqlQueryResults', {tabId: tabContext.tabId, results: result.results});
+            await appContext.triggerEvent('sqlQueryResults', {ntxId: ntxId, results: results});
         }
 
         toastService.showMessage("Note executed");
@@ -220,11 +219,11 @@ export default class Entrypoints extends Component {
         $(".tooltip").removeClass("show");
     }
 
-    tabNoteSwitchedEvent() {
+    noteSwitchedEvent() {
         this.hideAllTooltips();
     }
 
-    activeTabChangedEvent() {
+    activeContextChangedEvent() {
         this.hideAllTooltips();
     }
 }

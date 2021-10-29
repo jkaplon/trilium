@@ -49,8 +49,6 @@ const WIDGET_TPL = `
 class MobileGlobalButtonsWidget extends BasicWidget {
     doRender() {
         this.$widget = $(WIDGET_TPL);
-        this.overflowing();
-
         const mobileQuickSearchWidget = new MobileQuickSearchWidget();
         this.child(mobileQuickSearchWidget);
         this.$widget.append(mobileQuickSearchWidget.render());

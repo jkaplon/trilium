@@ -1,7 +1,7 @@
 import utils from './utils.js';
 import server from './server.js';
 import toastService from "./toast.js";
-import treeCache from "./tree_cache.js";
+import froca from "./froca.js";
 import hoistedNoteService from "./hoisted_note.js";
 import ws from "./ws.js";
 
@@ -28,7 +28,7 @@ async function moveAfterBranch(branchIdsToMove, afterBranchId) {
     branchIdsToMove = filterRootNote(branchIdsToMove);
     branchIdsToMove = filterSearchBranches(branchIdsToMove);
 
-    const afterNote = await treeCache.getBranch(afterBranchId).getNote();
+    const afterNote = await froca.getBranch(afterBranchId).getNote();
 
     if (afterNote.noteId === 'root' || afterNote.noteId === hoistedNoteService.getHoistedNoteId()) {
         alert('Cannot move notes after root note.');
@@ -51,7 +51,7 @@ async function moveToParentNote(branchIdsToMove, newParentBranchId) {
     branchIdsToMove = filterRootNote(branchIdsToMove);
 
     for (const branchIdToMove of branchIdsToMove) {
-        const branchToMove = treeCache.getBranch(branchIdToMove);
+        const branchToMove = froca.getBranch(branchIdToMove);
 
         if (branchToMove.noteId === hoistedNoteService.getHoistedNoteId()
             || (await branchToMove.getParentNote()).type === 'search') {
@@ -74,7 +74,7 @@ async function deleteNotes(branchIdsToDelete) {
         return false;
     }
 
-    let proceed, deleteAllClones;
+    let proceed, deleteAllClones, eraseNotes;
 
     if (utils.isMobile()) {
         proceed = true;
@@ -82,7 +82,7 @@ async function deleteNotes(branchIdsToDelete) {
     }
     else {
         const deleteNotesDialog = await import("../dialogs/delete_notes.js");
-        ({proceed, deleteAllClones} = await deleteNotesDialog.showDialog(branchIdsToDelete));
+        ({proceed, deleteAllClones, eraseNotes} = await deleteNotesDialog.showDialog(branchIdsToDelete));
     }
 
     if (!proceed) {
@@ -97,9 +97,9 @@ async function deleteNotes(branchIdsToDelete) {
         counter++;
 
         const last = counter === branchIdsToDelete.length;
-        const query = `?taskId=${taskId}&last=${last ? 'true' : 'false'}`;
+        const query = `?taskId=${taskId}&eraseNotes=${eraseNotes ? 'true' : 'false'}&last=${last ? 'true' : 'false'}`;
 
-        const branch = treeCache.getBranch(branchIdToDelete);
+        const branch = froca.getBranch(branchIdToDelete);
 
         if (deleteAllClones) {
             await server.remove(`notes/${branch.noteId}` + query);
@@ -107,6 +107,10 @@ async function deleteNotes(branchIdsToDelete) {
         else {
             await server.remove(`branches/${branchIdToDelete}` + query);
         }
+    }
+
+    if (eraseNotes) {
+        utils.reloadFrontendApp("erasing notes requires reload");
     }
 
     return true;
@@ -140,7 +144,7 @@ function filterRootNote(branchIds) {
     const hoistedNoteId = hoistedNoteService.getHoistedNoteId();
 
     return branchIds.filter(branchId => {
-       const branch = treeCache.getBranch(branchId);
+       const branch = froca.getBranch(branchId);
 
         return branch.noteId !== 'root'
             && branch.noteId !== hoistedNoteId;
