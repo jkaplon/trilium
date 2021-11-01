@@ -2,6 +2,7 @@ import FlexContainer from "../widgets/containers/flex_container.js";
 import NoteTitleWidget from "../widgets/note_title.js";
 import NoteDetailWidget from "../widgets/note_detail.js";
 import NoteTreeWidget from "../widgets/note_tree.js";
+import MobileQuickSearchWidget from "../widgets/mobile_widgets/mobile_quick_search.js";
 import MobileGlobalButtonsWidget from "../widgets/mobile_widgets/mobile_global_buttons.js";
 import CloseDetailButtonWidget from "../widgets/mobile_widgets/close_detail_button.js";
 import MobileDetailMenuWidget from "../widgets/mobile_widgets/mobile_detail_menu.js";
@@ -94,6 +95,7 @@ export default class MobileLayout {
                 .css("max-height", "100%")
                 .css('padding-left', 0)
                 .css('contain', 'content')
+                .child(new MobileQuickSearchWidget())
                 .child(new MobileGlobalButtonsWidget())
                 .child(new NoteTreeWidget("main")
                     .cssBlock(FANCYTREE_CSS)))

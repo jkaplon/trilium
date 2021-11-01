@@ -2,7 +2,7 @@ import BasicWidget from "../basic_widget.js";
 import server from "../../services/server.js";
 import linkService from "../../services/link.js";
 import dateNotesService from "../../services/date_notes.js";
-import treeCache from "../../services/froca.js";
+import froca from "../../services/froca.js";
 import utils from "../../services/utils.js";
 import appContext from "../../services/app_context.js";
 
@@ -10,8 +10,8 @@ const TPL = `
 <div class="quick-search input-group">
   <style>
     .quick-search {
-        margin-left: 5px;
-        margin-right: 5px;
+        padding: 10px;
+        height: 50px;
     }
   
     .quick-search .dropdown-menu {
@@ -23,7 +23,7 @@ const TPL = `
     }
   </style>
   
-  <input type="text" class="form-control search-string" placeholder="search">
+  <input type="text" class="component form-control search-string" placeholder="search">
   <div class="input-group-append">
     <button class="btn btn-outline-secondary search-button" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
         <span class="bx bx-search"></span>
@@ -38,7 +38,6 @@ const MAX_DISPLAYED_NOTES = 15;
 export default class MobileQuickSearchWidget extends BasicWidget {
     doRender() {
         this.$widget = $(TPL);
-        this.overflowing();
 
         this.$searchString = this.$widget.find('.search-string');
         this.$dropdownMenu = this.$widget.find('.dropdown-menu');
@@ -89,7 +88,7 @@ export default class MobileQuickSearchWidget extends BasicWidget {
             this.$dropdownMenu.append('<span class="dropdown-item disabled">No results found</span>');
         }
 
-        for (const note of await treeCache.getNotes(displayedNoteIds)) {
+        for (const note of await froca.getNotes(displayedNoteIds)) {
             const $link = await linkService.createNoteLink(note.noteId, {showNotePath: true});
             $link.addClass('dropdown-item');
             $link.attr("tabIndex", "0");
