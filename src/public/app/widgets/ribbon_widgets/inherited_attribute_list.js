@@ -33,7 +33,11 @@ export default class InheritedAttributesWidget extends NoteContextAwareWidget {
     constructor() {
         super();
 
-        this.attributeDetailWidget = new AttributeDetailWidget().setParent(this);
+        /** @type {AttributeDetailWidget} */
+        this.attributeDetailWidget = new AttributeDetailWidget()
+            .contentSized()
+            .setParent(this);
+
         this.child(this.attributeDetailWidget);
     }
 
@@ -65,18 +69,21 @@ export default class InheritedAttributesWidget extends NoteContextAwareWidget {
 
         for (const attribute of inheritedAttributes) {
             const $attr = (await attributeRenderer.renderAttribute(attribute, false))
-                .on('click', e => this.attributeDetailWidget.showAttributeDetail({
-                    attribute: {
-                        noteId: attribute.noteId,
-                        type: attribute.type,
-                        name: attribute.name,
-                        value: attribute.value,
-                        isInheritable: attribute.isInheritable
-                    },
-                    isOwned: false,
-                    x: e.pageX,
-                    y: e.pageY
-                }));
+                .on('click', e => {
+                    setTimeout(() =>
+                        this.attributeDetailWidget.showAttributeDetail({
+                            attribute: {
+                                noteId: attribute.noteId,
+                                type: attribute.type,
+                                name: attribute.name,
+                                value: attribute.value,
+                                isInheritable: attribute.isInheritable
+                            },
+                            isOwned: false,
+                            x: e.pageX,
+                            y: e.pageY
+                        }), 100);
+                });
 
             this.$container
                 .append($attr)

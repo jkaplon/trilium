@@ -5,6 +5,10 @@ const AbstractEntity = require("./abstract_entity.js");
 const sql = require("../../services/sql.js");
 const dateUtils = require("../../services/date_utils.js");
 
+/**
+ * Branch represents a relationship between a child note and its parent note. Trilium allows a note to have multiple
+ * parents.
+ */
 class Branch extends AbstractEntity {
     static get entityName() { return "branches"; }
     static get primaryKeyName() { return "branchId"; }
@@ -35,19 +39,19 @@ class Branch extends AbstractEntity {
     }
 
     update([branchId, noteId, parentNoteId, prefix, notePosition, isExpanded, utcDateModified]) {
-        /** @param {string} */
+        /** @type {string} */
         this.branchId = branchId;
-        /** @param {string} */
+        /** @type {string} */
         this.noteId = noteId;
-        /** @param {string} */
+        /** @type {string} */
         this.parentNoteId = parentNoteId;
-        /** @param {string} */
+        /** @type {string} */
         this.prefix = prefix;
-        /** @param {int} */
+        /** @type {int} */
         this.notePosition = notePosition;
-        /** @param {boolean} */
+        /** @type {boolean} */
         this.isExpanded = !!isExpanded;
-        /** @param {string} */
+        /** @type {string} */
         this.utcDateModified = utcDateModified;
 
         return this;
@@ -99,6 +103,10 @@ class Branch extends AbstractEntity {
         }
 
         return this.becca.notes[this.parentNoteId];
+    }
+
+    get isDeleted() {
+        return !(this.branchId in this.becca.branches);
     }
 
     beforeSaving() {

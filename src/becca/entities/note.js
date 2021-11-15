@@ -12,6 +12,9 @@ const NoteRevision = require("./note_revision.js");
 const LABEL = 'label';
 const RELATION = 'relation';
 
+/**
+ * Trilium's main entity which can represent text note, image, code note, file attachment etc.
+ */
 class Note extends AbstractEntity {
     static get entityName() { return "notes"; }
     static get primaryKeyName() { return "noteId"; }
@@ -45,68 +48,80 @@ class Note extends AbstractEntity {
     update([noteId, title, type, mime, isProtected, dateCreated, dateModified, utcDateCreated, utcDateModified]) {
         // ------ Database persisted attributes ------
 
-        /** @param {string} */
+        /** @type {string} */
         this.noteId = noteId;
-        /** @param {string} */
+        /** @type {string} */
         this.title = title;
-        /** @param {boolean} */
+        /** @type {boolean} */
         this.isProtected = !!isProtected;
-        /** @param {string} */
+        /** @type {string} */
         this.type = type;
-        /** @param {string} */
+        /** @type {string} */
         this.mime = mime;
-        /** @param {string} */
+        /** @type {string} */
         this.dateCreated = dateCreated || dateUtils.localNowDateTime();
-        /** @param {string} */
+        /** @type {string} */
         this.dateModified = dateModified;
-        /** @param {string} */
+        /** @type {string} */
         this.utcDateCreated = utcDateCreated || dateUtils.utcNowDateTime();
-        /** @param {string} */
+        /** @type {string} */
         this.utcDateModified = utcDateModified;
 
         // ------ Derived attributes ------
 
-        /** @param {boolean} */
+        /** @type {boolean} */
         this.isDecrypted = !this.noteId || !this.isProtected;
 
         this.decrypt();
 
-        /** @param {string|null} */
+        /** @type {string|null} */
         this.flatTextCache = null;
 
         return this;
     }
 
     init() {
-        /** @param {Branch[]} */
+        /** @type {Branch[]} */
         this.parentBranches = [];
-        /** @param {Note[]} */
+        /** @type {Note[]} */
         this.parents = [];
-        /** @param {Note[]} */
+        /** @type {Note[]} */
         this.children = [];
-        /** @param {Attribute[]} */
+        /** @type {Attribute[]} */
         this.ownedAttributes = [];
 
-        /** @param {Attribute[]|null} */
+        /** @type {Attribute[]|null}
+         * @private */
         this.__attributeCache = null;
-        /** @param {Attribute[]|null} */
+        /** @type {Attribute[]|null}
+         * @private*/
         this.inheritableAttributeCache = null;
 
-        /** @param {Attribute[]} */
+        /** @type {Attribute[]} */
         this.targetRelations = [];
 
         this.becca.addNote(this.noteId, this);
 
-        /** @param {Note[]|null} */
+        /** @type {Note[]|null}
+         * @private */
         this.ancestorCache = null;
 
         // following attributes are filled during searching from database
 
-        /** @param {int} size of the content in bytes */
+        /**
+         * size of the content in bytes
+         * @type {int|null}
+         */
         this.contentSize = null;
-        /** @param {int} size of the content and note revision contents in bytes */
+        /**
+         * size of the content and note revision contents in bytes
+         * @type {int|null}
+         */
         this.noteSize = null;
-        /** @param {int} number of note revisions for this note */
+        /**
+         * number of note revisions for this note
+         * @type {int|null}
+         */
         this.revisionCount = null;
     }
 
@@ -729,23 +744,33 @@ class Note extends AbstractEntity {
 
     /** @returns {Note[]} */
     getSubtreeNotesIncludingTemplated() {
-        const arr = [[this]];
+        const set = new Set();
 
-        for (const childNote of this.children) {
-            arr.push(childNote.getSubtreeNotesIncludingTemplated());
-        }
+        function inner(note) {
+            if (set.has(note)) {
+                return;
+            }
 
-        for (const targetRelation of this.targetRelations) {
-            if (targetRelation.name === 'template') {
-                const note = targetRelation.note;
+            set.add(note);
 
-                if (note) {
-                    arr.push(note.getSubtreeNotesIncludingTemplated());
+            for (const childNote of note.children) {
+                inner(childNote);
+            }
+
+            for (const targetRelation of note.targetRelations) {
+                if (targetRelation.name === 'template') {
+                    const targetNote = targetRelation.note;
+
+                    if (targetNote) {
+                        inner(targetNote);
+                    }
                 }
             }
         }
 
-        return arr.flat();
+        inner(this);
+
+        return Array.from(set);
     }
 
     /** @returns {Note[]} */
@@ -1100,6 +1125,10 @@ class Note extends AbstractEntity {
                 log.error(`Could not decrypt note ${this.noteId}: ${e.message} ${e.stack}`);
             }
         }
+    }
+
+    get isDeleted() {
+        return !(this.noteId in this.becca.notes);
     }
 
     beforeSaving() {

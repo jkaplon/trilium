@@ -21,6 +21,11 @@ class NoteContext extends Component {
     }
 
     setEmpty() {
+        this.notePath = null;
+        this.noteId = null;
+        this.parentNoteId = null;
+        this.hoistedNoteId = 'root';
+
         this.triggerEvent('noteSwitched', {
             noteContext: this,
             notePath: this.notePath
@@ -161,11 +166,11 @@ class NoteContext extends Component {
     }
 
     async setHoistedNoteId(noteIdToHoist) {
-        if (this.notePathArray && !this.notePathArray.includes(noteIdToHoist)) {
+        this.hoistedNoteId = noteIdToHoist;
+
+        if (!this.notePathArray?.includes(noteIdToHoist)) {
             await this.setNote(noteIdToHoist);
         }
-
-        this.hoistedNoteId = noteIdToHoist;
 
         await this.triggerEvent('hoistedNoteChanged', {
             noteId: noteIdToHoist,

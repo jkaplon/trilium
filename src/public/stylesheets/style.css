@@ -226,8 +226,8 @@ div.ui-tooltip {
     background: inherit;
 }
 
-.CodeMirror * {
-    font-family: var(--monospace-font-family) !important;
+body .CodeMirror {
+    font-size: var(--monospace-font-size);
 }
 
 .CodeMirror-gutters {
@@ -949,4 +949,10 @@ input {
     overflow-x: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+}
+
+.note-split {
+    flex-basis: 0; /* so that each split has same width */
+    margin-left: auto;
+    margin-right: auto;
 }

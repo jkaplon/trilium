@@ -6,6 +6,10 @@ const sql = require("../../services/sql.js");
 const dateUtils = require("../../services/date_utils.js");
 const promotedAttributeDefinitionParser = require("../../services/promoted_attribute_definition_parser");
 
+/**
+ * Attribute is an abstract concept which has two real uses - label (key - value pair)
+ * and relation (representing named relationship between source and target note)
+ */
 class Attribute extends AbstractEntity {
     static get entityName() { return "attributes"; }
     static get primaryKeyName() { return "attributeId"; }
@@ -36,21 +40,21 @@ class Attribute extends AbstractEntity {
     }
 
     update([attributeId, noteId, type, name, value, isInheritable, position, utcDateModified]) {
-        /** @param {string} */
+        /** @type {string} */
         this.attributeId = attributeId;
-        /** @param {string} */
+        /** @type {string} */
         this.noteId = noteId;
-        /** @param {string} */
+        /** @type {string} */
         this.type = type;
-        /** @param {string} */
+        /** @type {string} */
         this.name = name;
-        /** @param {int} */
+        /** @type {int} */
         this.position = position;
-        /** @param {string} */
+        /** @type {string} */
         this.value = value;
-        /** @param {boolean} */
+        /** @type {boolean} */
         this.isInheritable = !!isInheritable;
-        /** @param {string} */
+        /** @type {string} */
         this.utcDateModified = utcDateModified;
 
         return this;
@@ -143,6 +147,10 @@ class Attribute extends AbstractEntity {
         } else {
             return this.name;
         }
+    }
+
+    get isDeleted() {
+        return !(this.attributeId in this.becca.attributes);
     }
 
     beforeSaving() {

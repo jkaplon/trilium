@@ -7,12 +7,15 @@ const config = require('../services/config');
 const optionService = require('../services/options');
 const log = require('../services/log');
 const env = require('../services/env');
+const utils = require('../services/utils');
 const protectedSessionService = require("../services/protected_session");
 
 function index(req, res) {
     const options = optionService.getOptionsMap();
 
-    let view = req.cookies['trilium-device'] === 'mobile' ? 'mobile' : 'desktop';
+    let view = (!utils.isElectron() && req.cookies['trilium-device'] === 'mobile')
+        ? 'mobile'
+        : 'desktop';
 
     const csrfToken = req.csrfToken();
     log.info(`Generated CSRF token ${csrfToken} with secret ${res.getHeader('set-cookie')}`);
@@ -32,7 +35,8 @@ function index(req, res) {
         isDev: env.isDev(),
         isMainWindow: !req.query.extra,
         extraHoistedNoteId: req.query.extraHoistedNoteId,
-        isProtectedSessionAvailable: protectedSessionService.isProtectedSessionAvailable()
+        isProtectedSessionAvailable: protectedSessionService.isProtectedSessionAvailable(),
+        maxContentWidth: parseInt(options.maxContentWidth)
     });
 }
 
