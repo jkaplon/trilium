@@ -2,7 +2,7 @@
   "name": "trilium",
   "productName": "Trilium Notes",
   "description": "Trilium Notes",
-  "version": "0.48.6",
+  "version": "0.48.7",
   "license": "AGPL-3.0-only",
   "main": "electron.js",
   "bin": {
@@ -81,7 +81,7 @@
   },
   "devDependencies": {
     "cross-env": "7.0.3",
-    "electron": "13.6.1",
+    "electron": "13.6.2",
     "electron-builder": "22.13.1",
     "electron-packager": "15.4.0",
     "electron-rebuild": "3.2.3",
