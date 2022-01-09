@@ -49,6 +49,12 @@ const BUILTIN_ATTRIBUTES = [
     { type: 'label', name: 'mapRootNoteId' },
     { type: 'label', name: 'bookmarked' },
     { type: 'label', name: 'bookmarkFolder' },
+    { type: 'label', name: 'sorted' },
+    { type: 'label', name: 'top' },
+    { type: 'label', name: 'fullContentWidth' },
+    { type: 'label', name: 'shareHiddenFromTree' },
+    { type: 'label', name: 'shareAlias' },
+    { type: 'label', name: 'shareOmitDefaultCss' },
 
     // relation names
     { type: 'relation', name: 'runOnNoteCreation', isDangerous: true },
@@ -59,9 +65,13 @@ const BUILTIN_ATTRIBUTES = [
     { type: 'relation', name: 'runOnAttributeChange', isDangerous: true },
     { type: 'relation', name: 'template' },
     { type: 'relation', name: 'widget', isDangerous: true },
-    { type: 'relation', name: 'renderNote', isDangerous: true }
+    { type: 'relation', name: 'renderNote', isDangerous: true },
+    { type: 'relation', name: 'shareCss', isDangerous: false },
+    { type: 'relation', name: 'shareJs', isDangerous: false },
+    { type: 'relation', name: 'shareFavicon', isDangerous: false },
 ];
 
+/** @returns {Note[]} */
 function getNotesWithLabel(name, value) {
     const query = formatAttrForSearch({type: 'label', name, value}, true);
     return searchService.searchNotes(query, {
@@ -71,6 +81,7 @@ function getNotesWithLabel(name, value) {
 }
 
 // TODO: should be in search service
+/** @returns {Note|null} */
 function getNoteWithLabel(name, value) {
     // optimized version (~20 times faster) without using normal search, useful for e.g. finding date notes
     const attrs = becca.findAttributes('label', name);
@@ -88,6 +99,24 @@ function getNoteWithLabel(name, value) {
     }
 
     return null;
+}
+
+/**
+ * Does not take into account templates and inheritance
+ */
+function getNotesWithLabelFast(name, value) {
+    // optimized version (~20 times faster) without using normal search, useful for e.g. finding date notes
+    const attrs = becca.findAttributes('label', name);
+
+    if (value === undefined) {
+        return attrs.map(attr => attr.getNote());
+    }
+
+    value = value?.toLowerCase();
+
+    return attrs
+        .filter(attr => attr.value.toLowerCase() === value)
+        .map(attr => attr.getNote());
 }
 
 function createLabel(noteId, name, value = "") {
@@ -181,6 +210,7 @@ function sanitizeAttributeName(origName) {
 
 module.exports = {
     getNotesWithLabel,
+    getNotesWithLabelFast,
     getNoteWithLabel,
     createLabel,
     createRelation,

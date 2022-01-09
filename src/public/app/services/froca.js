@@ -6,12 +6,14 @@ import appContext from "./app_context.js";
 import NoteComplement from "../entities/note_complement.js";
 
 /**
- * Froca keeps a read only cache of note tree structure in frontend's memory.
+ * Froca (FROntend CAche) keeps a read only cache of note tree structure in frontend's memory.
  * - notes are loaded lazily when unknown noteId is requested
  * - when note is loaded, all its parent and child branches are loaded as well. For a branch to be used, it's not must be loaded before
  * - deleted notes are present in the cache as well, but they don't have any branches. As a result check for deleted branch is done by presence check - if the branch is not there even though the corresponding note has been loaded, we can infer it is deleted.
  *
  * Note and branch deletions are corner cases and usually not needed.
+ *
+ * Backend has a similar cache called Becca
  */
 class Froca {
     constructor() {
@@ -186,7 +188,7 @@ class Froca {
             froca.notes[note.noteId].childToBranch = {};
         }
 
-        const branches = [...note.getBranches(), ...note.getChildBranches()];
+        const branches = [...note.getParentBranches(), ...note.getChildBranches()];
 
         searchResultNoteIds.forEach((resultNoteId, index) => branches.push({
             // branchId should be repeatable since sometimes we reload some notes without rerendering the tree
@@ -259,6 +261,7 @@ class Froca {
         return (await this.getNotes([noteId], silentNotFoundError))[0];
     }
 
+    /** @returns {Note|null} */
     getNoteFromCache(noteId) {
         if (!noteId) {
             throw new Error("Empty noteId");
@@ -267,6 +270,7 @@ class Froca {
         return this.notes[noteId];
     }
 
+    /** @returns {Branch[]} */
     getBranches(branchIds, silentNotFoundError = false) {
         return branchIds
             .map(branchId => this.getBranch(branchId, silentNotFoundError))

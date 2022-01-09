@@ -9,6 +9,7 @@ const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const sessionSecret = require('./services/session_secret');
 const dataDir = require('./services/data_dir');
+const utils = require('./services/utils');
 require('./services/handlers');
 require('./becca/becca_loader.js');
 
@@ -100,6 +101,10 @@ require('./services/backup');
 require('./services/consistency_checks');
 
 require('./services/scheduler');
+
+if (utils.isElectron()) {
+    require('@electron/remote/main').initialize();
+}
 
 module.exports = {
     app,

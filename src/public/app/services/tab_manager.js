@@ -129,12 +129,7 @@ export default class TabManager extends Component {
             window.history.pushState(null, "", url);
         }
 
-        document.title = "Trilium Notes";
-
-        if (activeNoteContext.note) {
-            // it helps navigating in history if note title is included in the title
-            document.title += " - " + activeNoteContext.note.title;
-        }
+        this.updateDocumentTitle(activeNoteContext);
 
         this.triggerEvent('activeNoteChanged'); // trigger this even in on popstate event
     }
@@ -237,7 +232,7 @@ export default class TabManager extends Component {
         if (noteContext) {
             const resolvedNotePath = await treeService.resolveNotePath(notePath, noteContext.hoistedNoteId);
 
-            if (resolvedNotePath.includes(noteContext.hoistedNoteId)) {
+            if (resolvedNotePath.includes(noteContext.hoistedNoteId) || resolvedNotePath.includes("hidden")) {
                 hoistedNoteId = noteContext.hoistedNoteId;
             }
         }
@@ -452,5 +447,23 @@ export default class TabManager extends Component {
 
     hoistedNoteChangedEvent() {
         this.tabsUpdate.scheduleUpdate();
+    }
+
+    updateDocumentTitle(activeNoteContext) {
+        const titleFragments = [
+            // it helps navigating in history if note title is included in the title
+            activeNoteContext.note?.title,
+            "Trilium Notes"
+        ].filter(Boolean);
+
+        document.title = titleFragments.join(" - ");
+    }
+
+    entitiesReloadedEvent({loadResults}) {
+        const activeContext = this.getActiveContext();
+
+        if (activeContext && loadResults.isNoteReloaded(activeContext.noteId)) {
+            this.updateDocumentTitle(activeContext);
+        }
     }
 }

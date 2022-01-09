@@ -6,6 +6,7 @@ import ws from "../../services/ws.js";
 import appContext from "../../services/app_context.js";
 import toastService from "../../services/toast.js";
 import treeService from "../../services/tree.js";
+import options from "../../services/options.js";
 
 const TPL = `
 <div class="note-detail-code note-detail-printable">
@@ -14,20 +15,10 @@ const TPL = `
         position: relative;
     }
     
-    .trilium-api-docs-button {
-        /*display: none;*/
-        position: absolute;
-        top: 10px;
-        right: 10px;
-    }
-    
     .note-detail-code-editor {
         min-height: 50px;
     }
     </style>
-    
-    <button class="btn bx bx-help-circle trilium-api-docs-button icon-button floating-button" 
-            title="Open Trilium API docs"></button>
 
     <div class="note-detail-code-editor"></div>
 
@@ -35,6 +26,13 @@ const TPL = `
         <button data-trigger-command="runActiveNote"
                 class="no-print execute-button btn btn-sm">
             Execute <kbd data-command="runActiveNote"></kbd>
+        </button>
+        
+        <button class="no-print trilium-api-docs-button btn btn-sm" 
+            title="Open Trilium API docs">
+            <span class="bx bx-help-circle"></span>
+            
+            API docs
         </button>
         
         <button class="no-print save-to-note-button btn btn-sm">
@@ -97,6 +95,7 @@ export default class EditableCodeTypeWidget extends TypeWidget {
             viewportMargin: Infinity,
             indentUnit: 4,
             matchBrackets: true,
+            keyMap: options.is('vimKeymapEnabled') ? "vim": "default",
             matchTags: {bothTags: true},
             highlightSelectionMatches: {showToken: /\w/, annotateScrollbar: false},
             lint: true,

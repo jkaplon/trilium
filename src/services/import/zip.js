@@ -240,13 +240,15 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
         }
 
         if (noteMeta && noteMeta.isClone) {
-            new Branch({
-                noteId,
-                parentNoteId,
-                isExpanded: noteMeta.isExpanded,
-                prefix: noteMeta.prefix,
-                notePosition: noteMeta.notePosition
-            }).save();
+            if (!becca.getBranchFromChildAndParent(noteId, parentNoteId)) {
+                new Branch({
+                    noteId,
+                    parentNoteId,
+                    isExpanded: noteMeta.isExpanded,
+                    prefix: noteMeta.prefix,
+                    notePosition: noteMeta.notePosition
+                }).save();
+            }
 
             return;
         }
@@ -351,8 +353,30 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
 
         let note = becca.getNote(noteId);
 
+        const isProtected = importRootNote.isProtected && protectedSessionService.isProtectedSessionAvailable();
+
         if (note) {
+            // only skeleton was created because of altered order of cloned notes in ZIP, we need to update
+            // https://github.com/zadam/trilium/issues/2440
+            if (note.type === undefined) {
+                note.type = type;
+                note.mime = mime;
+                note.title = noteTitle;
+                note.isProtected = isProtected;
+                note.save();
+            }
+
             note.setContent(content);
+
+            if (!becca.getBranchFromChildAndParent(noteId, parentNoteId)) {
+                new Branch({
+                    noteId,
+                    parentNoteId,
+                    isExpanded: noteMeta.isExpanded,
+                    prefix: noteMeta.prefix,
+                    notePosition: noteMeta.notePosition
+                }).save();
+            }
         }
         else {
             ({note} = noteService.createNewNote({
@@ -367,7 +391,7 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
                 // root notePosition should be ignored since it relates to original document
                 // now import root should be placed after existing notes into new parent
                 notePosition: (noteMeta && firstNote) ? noteMeta.notePosition : undefined,
-                isProtected: importRootNote.isProtected && protectedSessionService.isProtectedSessionAvailable(),
+                isProtected: isProtected,
             }));
 
             createdNoteIds[note.noteId] = true;

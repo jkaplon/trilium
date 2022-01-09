@@ -136,7 +136,10 @@ class Note extends AbstractEntity {
         return this.parentBranches;
     }
 
-    /** @returns {Branch[]} */
+    /**
+     * @returns {Branch[]}
+     * @deprecated use getParentBranches() instead
+     */
     getBranches() {
         return this.parentBranches;
     }
@@ -1111,7 +1114,7 @@ class Note extends AbstractEntity {
 
         const branch = this.becca.getNote(parentNoteId).getParentBranches()[0];
 
-        return cloningService.cloneNoteToParent(this.noteId, branch.branchId);
+        return cloningService.cloneNoteToBranch(this.noteId, branch.branchId);
     }
 
     decrypt() {

@@ -55,7 +55,7 @@ function initNotSyncedOptions(initialized, opts = {}) {
 const defaultOptions = [
     { name: 'noteRevisionSnapshotTimeInterval', value: '600', isSynced: true },
     { name: 'protectedSessionTimeout', value: '600', isSynced: true },
-    { name: 'zoomFactor', value: '1.0', isSynced: false },
+    { name: 'zoomFactor', value: process.platform === "win32" ? '0.9' : '1.0', isSynced: false },
     { name: 'overrideThemeFonts', value: 'false', isSynced: false },
     { name: 'mainFontFamily', value: 'theme', isSynced: false },
     { name: 'mainFontSize', value: '100', isSynced: false },
@@ -70,6 +70,7 @@ const defaultOptions = [
     { name: 'imageMaxWidthHeight', value: '2000', isSynced: true },
     { name: 'imageJpegQuality', value: '75', isSynced: true },
     { name: 'autoFixConsistencyIssues', value: 'true', isSynced: false },
+    { name: 'vimKeymapEnabled', value: 'false', isSynced: false },
     { name: 'codeNotesMimeTypes', value: '["text/x-csrc","text/x-c++src","text/x-csharp","text/css","text/x-go","text/x-groovy","text/x-haskell","text/html","message/http","text/x-java","application/javascript;env=frontend","application/javascript;env=backend","application/json","text/x-kotlin","text/x-markdown","text/x-perl","text/x-php","text/x-python","text/x-ruby",null,"text/x-sql","text/x-sqlite;schema=trilium","text/x-swift","text/xml","text/x-yaml"]', isSynced: true },
     { name: 'leftPaneWidth', value: '25', isSynced: false },
     { name: 'leftPaneVisible', value: 'true', isSynced: false },
@@ -91,6 +92,7 @@ const defaultOptions = [
     { name: 'weeklyBackupEnabled', value: 'true', isSynced: false },
     { name: 'monthlyBackupEnabled', value: 'true', isSynced: false },
     { name: 'maxContentWidth', value: '1200', isSynced: false },
+    { name: 'compressImages', value: 'true', isSynced: true }
 ];
 
 function initStartupOptions() {

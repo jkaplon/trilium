@@ -58,7 +58,10 @@ class Branch extends AbstractEntity {
     }
 
     init() {
-        this.becca.branches[this.branchId] = this;
+        if (this.branchId) {
+            this.becca.branches[this.branchId] = this;
+        }
+
         this.becca.childParentToBranch[`${this.noteId}-${this.parentNoteId}`] = this;
 
         if (this.branchId === 'root') {
@@ -84,7 +87,7 @@ class Branch extends AbstractEntity {
     /** @returns {Note} */
     get childNote() {
         if (!(this.noteId in this.becca.notes)) {
-            // entities can come out of order in sync, create skeleton which will be filled later
+            // entities can come out of order in sync/import, create skeleton which will be filled later
             this.becca.addNote(this.noteId, new Note({noteId: this.noteId}));
         }
 
@@ -98,7 +101,7 @@ class Branch extends AbstractEntity {
     /** @returns {Note} */
     get parentNote() {
         if (!(this.parentNoteId in this.becca.notes)) {
-            // entities can come out of order in sync, create skeleton which will be filled later
+            // entities can come out of order in sync/import, create skeleton which will be filled later
             this.becca.addNote(this.parentNoteId, new Note({noteId: this.parentNoteId}));
         }
 
@@ -136,9 +139,7 @@ class Branch extends AbstractEntity {
             notePosition: this.notePosition,
             isExpanded: this.isExpanded,
             isDeleted: false,
-            utcDateModified: this.utcDateModified,
-            // not used for anything, will be later dropped
-            utcDateCreated: dateUtils.utcNowDateTime()
+            utcDateModified: this.utcDateModified
         };
     }
 

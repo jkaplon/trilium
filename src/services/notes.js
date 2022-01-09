@@ -118,6 +118,7 @@ function createNewNote(params) {
         note.setContent(params.content);
 
         const branch = new Branch({
+            branchId: params.branchId,
             noteId: note.noteId,
             parentNoteId: params.parentNoteId,
             notePosition: params.notePosition !== undefined ? params.notePosition : getNewNotePosition(params.parentNoteId),
@@ -359,7 +360,7 @@ function downloadImages(noteId, content) {
             // which upon the download of all the images will update the note if the links have not been fixed before
 
             sql.transactional(() => {
-                const imageNotes = becca.getNotes(Object.values(imageUrlToNoteIdMapping));
+                const imageNotes = becca.getNotes(Object.values(imageUrlToNoteIdMapping), true);
 
                 const origNote = becca.getNote(noteId);
 
@@ -540,7 +541,7 @@ function deleteBranch(branch, deleteId, taskContext) {
     branch.markAsDeleted(deleteId);
 
     const note = branch.getNote();
-    const notDeletedBranches = note.getBranches();
+    const notDeletedBranches = note.getParentBranches();
 
     if (notDeletedBranches.length === 0) {
         for (const childBranch of note.getChildBranches()) {
@@ -732,23 +733,26 @@ function eraseAttributes(attributeIdsToErase) {
 }
 
 function eraseDeletedEntities(eraseEntitiesAfterTimeInSeconds = null) {
-    if (eraseEntitiesAfterTimeInSeconds === null) {
-        eraseEntitiesAfterTimeInSeconds = optionService.getOptionInt('eraseEntitiesAfterTimeInSeconds');
-    }
+    // this is important also so that the erased entity changes are sent to the connected clients
+    sql.transactional(() => {
+        if (eraseEntitiesAfterTimeInSeconds === null) {
+            eraseEntitiesAfterTimeInSeconds = optionService.getOptionInt('eraseEntitiesAfterTimeInSeconds');
+        }
 
-    const cutoffDate = new Date(Date.now() - eraseEntitiesAfterTimeInSeconds * 1000);
+        const cutoffDate = new Date(Date.now() - eraseEntitiesAfterTimeInSeconds * 1000);
 
-    const noteIdsToErase = sql.getColumn("SELECT noteId FROM notes WHERE isDeleted = 1 AND utcDateModified <= ?", [dateUtils.utcDateTimeStr(cutoffDate)]);
+        const noteIdsToErase = sql.getColumn("SELECT noteId FROM notes WHERE isDeleted = 1 AND utcDateModified <= ?", [dateUtils.utcDateTimeStr(cutoffDate)]);
 
-    eraseNotes(noteIdsToErase);
+        eraseNotes(noteIdsToErase);
 
-    const branchIdsToErase = sql.getColumn("SELECT branchId FROM branches WHERE isDeleted = 1 AND utcDateModified <= ?", [dateUtils.utcDateTimeStr(cutoffDate)]);
+        const branchIdsToErase = sql.getColumn("SELECT branchId FROM branches WHERE isDeleted = 1 AND utcDateModified <= ?", [dateUtils.utcDateTimeStr(cutoffDate)]);
 
-    eraseBranches(branchIdsToErase);
+        eraseBranches(branchIdsToErase);
 
-    const attributeIdsToErase = sql.getColumn("SELECT attributeId FROM attributes WHERE isDeleted = 1 AND utcDateModified <= ?", [dateUtils.utcDateTimeStr(cutoffDate)]);
+        const attributeIdsToErase = sql.getColumn("SELECT attributeId FROM attributes WHERE isDeleted = 1 AND utcDateModified <= ?", [dateUtils.utcDateTimeStr(cutoffDate)]);
 
-    eraseAttributes(attributeIdsToErase);
+        eraseAttributes(attributeIdsToErase);
+    });
 }
 
 function eraseNotesWithDeleteId(deleteId) {
@@ -785,7 +789,7 @@ function duplicateSubtree(origNoteId, newParentNoteId) {
 
     const origNote = becca.notes[origNoteId];
     // might be null if orig note is not in the target newParentNoteId
-    const origBranch = origNote.getBranches().find(branch => branch.parentNoteId === newParentNoteId);
+    const origBranch = origNote.getParentBranches().find(branch => branch.parentNoteId === newParentNoteId);
 
     const noteIdMapping = getNoteIdMapping(origNote);
 
@@ -918,5 +922,6 @@ module.exports = {
     getUndeletedParentBranchIds,
     triggerNoteTitleChanged,
     eraseDeletedNotesNow,
-    eraseNotesWithDeleteId
+    eraseNotesWithDeleteId,
+    saveNoteRevision
 };

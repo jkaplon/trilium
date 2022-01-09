@@ -279,7 +279,7 @@ function isHtmlEmpty(html) {
 
 async function clearBrowserCache() {
     if (isElectron()) {
-        const win = dynamicRequire('electron').remote.getCurrentWindow();
+        const win = utils.dynamicRequire('@electron/remote').getCurrentWindow();
         await win.webContents.session.clearCache();
     }
 }
@@ -340,10 +340,12 @@ function initHelpDropdown($el) {
 
 const wikiBaseUrl = "https://github.com/zadam/trilium/wiki/"
 
+function openHelp(e) {
+    window.open(wikiBaseUrl + $(e.target).attr("data-help-page"), '_blank');
+}
+
 function initHelpButtons($el) {
-    $el.on("click", "*[data-help-page]", e => {
-        window.open(wikiBaseUrl + $(e.target).attr("data-help-page"), '_blank');
-    });
+    $el.on("click", "*[data-help-page]", e => openHelp(e));
 }
 
 function filterAttributeName(name) {
@@ -397,6 +399,7 @@ export default {
     timeLimit,
     initHelpDropdown,
     initHelpButtons,
+    openHelp,
     filterAttributeName,
     isValidAttributeName
 };

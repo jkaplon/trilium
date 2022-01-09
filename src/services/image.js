@@ -14,6 +14,7 @@ const isSvg = require('is-svg');
 const isAnimated = require('is-animated');
 
 async function processImage(uploadBuffer, originalName, shrinkImageSwitch) {
+    const compressImages = optionService.getOptionBool("compressImages");
     const origImageFormat = getImageType(uploadBuffer);
 
     if (origImageFormat && ["webp", "svg", "gif"].includes(origImageFormat.ext)) {
@@ -25,7 +26,7 @@ async function processImage(uploadBuffer, originalName, shrinkImageSwitch) {
         shrinkImageSwitch = false;
     }
 
-    const finalImageBuffer = shrinkImageSwitch ? await shrinkImage(uploadBuffer, originalName) : uploadBuffer;
+    const finalImageBuffer = (compressImages && shrinkImageSwitch) ? await shrinkImage(uploadBuffer, originalName) : uploadBuffer;
 
     const imageFormat = getImageType(finalImageBuffer);
 
@@ -122,7 +123,11 @@ function saveImage(parentNoteId, uploadBuffer, originalName, shrinkImageSwitch, 
 }
 
 async function shrinkImage(buffer, originalName) {
-    const jpegQuality = optionService.getOptionInt('imageJpegQuality');
+    let jpegQuality = optionService.getOptionInt('imageJpegQuality');
+
+    if (jpegQuality < 10 || jpegQuality > 100) {
+        jpegQuality = 75;
+    }
 
     let finalImageBuffer;
     try {

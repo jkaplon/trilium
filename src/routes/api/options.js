@@ -33,6 +33,7 @@ const ALLOWED_OPTIONS = new Set([
     'similarNotesWidget',
     'editedNotesWidget',
     'calendarWidget',
+    'vimKeymapEnabled',
     'codeNotesMimeTypes',
     'spellCheckEnabled',
     'spellCheckLanguageCode',
@@ -54,7 +55,8 @@ const ALLOWED_OPTIONS = new Set([
     'dailyBackupEnabled',
     'weeklyBackupEnabled',
     'monthlyBackupEnabled',
-    'maxContentWidth'
+    'maxContentWidth',
+    'compressImages'
 ]);
 
 function getOptions() {

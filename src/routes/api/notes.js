@@ -73,7 +73,7 @@ function deleteNote(req) {
 
     const taskContext = TaskContext.getInstance(taskId, 'delete-notes');
 
-    for (const branch of note.getBranches()) {
+    for (const branch of note.getParentBranches()) {
         noteService.deleteBranch(branch, deleteId, taskContext);
     }
 
@@ -120,9 +120,8 @@ function protectNote(req) {
 
 function setNoteTypeMime(req) {
     // can't use [] destructuring because req.params is not iterable
-    const noteId = req.params[0];
-    const type = req.params[1];
-    const mime = req.params[2];
+    const {noteId} = req.params;
+    const {type, mime} = req.body;
 
     const note = becca.getNote(noteId);
     note.type = type;
@@ -203,6 +202,10 @@ function changeTitle(req) {
 
     const noteTitleChanged = note.title !== title;
 
+    if (noteTitleChanged) {
+        noteService.saveNoteRevision(note);
+    }
+
     note.title = title;
 
     note.save();
@@ -236,7 +239,7 @@ function getDeleteNotesPreview(req) {
 
         const note = branch.getNote();
 
-        if (deleteAllClones || note.getBranches().length <= branchCountToDelete[branch.branchId]) {
+        if (deleteAllClones || note.getParentBranches().length <= branchCountToDelete[branch.branchId]) {
             noteIdsToBeDeleted.add(note.noteId);
 
             for (const childBranch of note.getChildBranches()) {
@@ -299,6 +302,21 @@ function uploadModifiedFile(req) {
     note.setContent(fileContent);
 }
 
+function getBacklinkCount(req) {
+    const {noteId} = req.params;
+
+    const note = becca.getNote(noteId);
+
+    if (!note) {
+        return [404, "Not found"];
+    }
+    else {
+        return {
+            count: note.getTargetRelations().length
+        };
+    }
+}
+
 module.exports = {
     getNote,
     updateNote,
@@ -313,5 +331,6 @@ module.exports = {
     duplicateSubtree,
     eraseDeletedNotesNow,
     getDeleteNotesPreview,
-    uploadModifiedFile
+    uploadModifiedFile,
+    getBacklinkCount
 };

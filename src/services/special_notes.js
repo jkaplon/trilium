@@ -34,6 +34,7 @@ function getHiddenRoot() {
 
     if (!hidden) {
         hidden = noteService.createNewNote({
+            branchId: 'hidden',
             noteId: 'hidden',
             title: 'hidden',
             type: 'text',
@@ -44,6 +45,7 @@ function getHiddenRoot() {
         // isInheritable: false means that this notePath is automatically not preffered but at the same time
         // the flag is not inherited to the children
         hidden.addLabel('archived', "", false);
+        hidden.addLabel('excludeFromNoteMap', "", true);
     }
 
     return hidden;
@@ -200,12 +202,36 @@ function getHoistedNote() {
     return becca.getNote(cls.getHoistedNoteId());
 }
 
+function getShareRoot() {
+    let shareRoot = becca.getNote('share');
+
+    if (!shareRoot) {
+        shareRoot = noteService.createNewNote({
+            branchId: 'share',
+            noteId: 'share',
+            title: 'Shared notes',
+            type: 'text',
+            content: '',
+            parentNoteId: 'root'
+        }).note;
+    }
+
+    return shareRoot;
+}
+
 function createMissingSpecialNotes() {
     getSinglesNoteRoot();
     getSqlConsoleRoot();
     getSinglesNoteRoot();
     getSinglesNoteRoot();
     getGlobalNoteMap();
+    // share root is not automatically created since it's visible in the tree and many won't need it/use it
+
+    const hidden = getHiddenRoot();
+
+    if (!hidden.hasOwnedLabel('excludeFromNoteMap')) {
+        hidden.addLabel('excludeFromNoteMap', "", true);
+    }
 }
 
 module.exports = {
@@ -214,5 +240,6 @@ module.exports = {
     saveSqlConsole,
     createSearchNote,
     saveSearchNote,
-    createMissingSpecialNotes
+    createMissingSpecialNotes,
+    getShareRoot
 };

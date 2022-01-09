@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS "entity_changes" (
                                                 `entityId`	TEXT NOT NULL,
                                                 `hash`	TEXT NOT NULL,
                                                 `isErased` INT NOT NULL,
+                                                `changeId` TEXT NOT NULL,
                                                 `sourceId` TEXT NOT NULL,
                                                 `isSynced` INTEGER NOT NULL,
                                                 `utcDateChanged` TEXT NOT NULL
@@ -24,7 +25,6 @@ CREATE TABLE IF NOT EXISTS "branches" (
                                           `isDeleted`	INTEGER NOT NULL DEFAULT 0,
                                           `deleteId`    TEXT DEFAULT NULL,
                                           `utcDateModified`	TEXT NOT NULL,
-                                          utcDateCreated TEXT NOT NULL,
                                           PRIMARY KEY(`branchId`));
 CREATE TABLE IF NOT EXISTS "notes" (
                                        `noteId`	TEXT NOT NULL,
@@ -65,7 +65,6 @@ CREATE TABLE IF NOT EXISTS "options"
     name TEXT not null PRIMARY KEY,
     value TEXT,
     isSynced INTEGER default 0 not null,
-    utcDateCreated TEXT not null,
     utcDateModified TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS "attributes"

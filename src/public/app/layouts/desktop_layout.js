@@ -45,6 +45,9 @@ import EditedNotesWidget from "../widgets/ribbon_widgets/edited_notes.js";
 import OpenNoteButtonWidget from "../widgets/buttons/open_note_button_widget.js";
 import MermaidWidget from "../widgets/mermaid.js";
 import BookmarkButtons from "../widgets/bookmark_buttons.js";
+import NoteWrapperWidget from "../widgets/note_wrapper.js";
+import BacklinksWidget from "../widgets/backlinks.js";
+import SharedInfoWidget from "../widgets/shared_info.js";
 
 export default class DesktopLayout {
     constructor(customWidgets) {
@@ -110,9 +113,7 @@ export default class DesktopLayout {
                         .collapsible()
                         .id('center-pane')
                         .child(new SplitNoteContainer(() =>
-                            new FlexContainer('column')
-                                .css("flex-grow", "1")
-                                .collapsible()
+                            new NoteWrapperWidget()
                                 .child(new FlexContainer('row').class('title-row')
                                     .css("height", "50px")
                                     .css('align-items', "center")
@@ -147,7 +148,9 @@ export default class DesktopLayout {
                                             .titlePlacement("bottom"))
                                         .button(new NoteActionsWidget())
                                 )
+                                .child(new SharedInfoWidget())
                                 .child(new NoteUpdateStatusWidget())
+                                .child(new BacklinksWidget())
                                 .child(new MermaidWidget())
                                 .child(
                                     new ScrollingContainer()

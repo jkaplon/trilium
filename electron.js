@@ -4,6 +4,7 @@ const {app, globalShortcut} = require('electron');
 const sqlInit = require('./src/services/sql_init');
 const appIconService = require('./src/services/app_icon');
 const windowService = require('./src/services/window');
+const tray = require('./src/services/tray');
 
 // Adds debug features like hotkeys for triggering dev tools and reload
 require('electron-debug')();
@@ -30,6 +31,8 @@ app.on('ready', async () => {
         await sqlInit.dbReady;
 
         await windowService.createMainWindow();
+
+        tray.createTray();
     }
     else {
         await windowService.createSetupWindow();

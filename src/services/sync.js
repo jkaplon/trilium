@@ -149,10 +149,10 @@ async function pullChanges(syncContext) {
 
         sql.transactional(() => {
             for (const {entityChange, entity} of entityChanges) {
-                // FIXME: temporary fix
-                const existsAlready = !!sql.getValue("SELECT id FROM entity_changes WHERE entityName = ? AND entityId = ? AND utcDateChanged = ? AND hash = ?", [entityChange.entityName, entityChange.entityId, entityChange.utcDateChanged, entityChange.hash]);
+                const changeAppliedAlready = !entityChange.changeId
+                    || !!sql.getValue("SELECT id FROM entity_changes WHERE changeId = ?", [entityChange.changeId]);
 
-                if (!existsAlready && !sourceIdService.isLocalSourceId(entityChange.sourceId)) {
+                if (!changeAppliedAlready && !sourceIdService.isLocalSourceId(entityChange.sourceId)) {
                     if (!atLeastOnePullApplied) { // send only for first
                         ws.syncPullInProgress();
 
@@ -371,7 +371,10 @@ function getLastSyncedPull() {
 
 function setLastSyncedPull(entityChangeId) {
     const lastSyncedPullOption = becca.getOption('lastSyncedPull');
-    lastSyncedPullOption.value = entityChangeId + '';
+
+    if (lastSyncedPullOption) { // might be null in initial sync when becca is not loaded
+        lastSyncedPullOption.value = entityChangeId + '';
+    }
 
     // this way we avoid updating entity_changes which otherwise means that we've never pushed all entity_changes
     sql.execute("UPDATE options SET value = ? WHERE name = ?", [entityChangeId, 'lastSyncedPull']);
@@ -389,7 +392,10 @@ function setLastSyncedPush(entityChangeId) {
     ws.setLastSyncedPush(entityChangeId);
 
     const lastSyncedPushOption = becca.getOption('lastSyncedPush');
-    lastSyncedPushOption.value = entityChangeId + '';
+
+    if (lastSyncedPushOption) { // might be null in initial sync when becca is not loaded
+        lastSyncedPushOption.value = entityChangeId + '';
+    }
 
     // this way we avoid updating entity_changes which otherwise means that we've never pushed all entity_changes
     sql.execute("UPDATE options SET value = ? WHERE name = ?", [entityChangeId, 'lastSyncedPush']);

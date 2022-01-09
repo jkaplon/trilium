@@ -25,15 +25,6 @@ function createNote(parentNote, noteTitle) {
     }).note;
 }
 
-function getNoteStartingWith(parentNoteId, startsWith) {
-    const noteId = sql.getValue(`SELECT notes.noteId FROM notes JOIN branches USING(noteId) 
-                                    WHERE parentNoteId = ? AND title LIKE '${startsWith}%'
-                                    AND notes.isDeleted = 0 AND isProtected = 0 
-                                    AND branches.isDeleted = 0`, [parentNoteId]);
-
-    return becca.getNote(noteId);
-}
-
 /** @returns {Note} */
 function getRootCalendarNote() {
     let rootNote = attributeService.getNoteWithLabel(CALENDAR_ROOT_LABEL);
@@ -63,10 +54,9 @@ function getYearNote(dateStr, rootNote) {
         rootNote = getRootCalendarNote();
     }
 
-    const yearStr = dateStr.substr(0, 4);
+    const yearStr = dateStr.trim().substr(0, 4);
 
-    let yearNote = attributeService.getNoteWithLabel(YEAR_LABEL, yearStr)
-        || getNoteStartingWith(rootNote.noteId, yearStr);
+    let yearNote = attributeService.getNoteWithLabel(YEAR_LABEL, yearStr);
 
     if (yearNote) {
         return yearNote;
@@ -112,17 +102,11 @@ function getMonthNote(dateStr, rootNote) {
         return monthNote;
     }
 
-    const yearNote = getYearNote(dateStr, rootNote);
-
-    monthNote = getNoteStartingWith(yearNote.noteId, monthNumber);
-
-    if (monthNote) {
-        return monthNote;
-    }
-
     const dateObj = dateUtils.parseLocalDate(dateStr);
 
     const noteTitle = getMonthNoteTitle(rootNote, monthNumber, dateObj);
+
+    const yearNote = getYearNote(dateStr, rootNote);
 
     sql.transactional(() => {
         monthNote = createNote(yearNote, noteTitle);
@@ -154,6 +138,8 @@ function getDateNoteTitle(rootNote, dayNumber, dateObj) {
 
 /** @returns {Note} */
 function getDateNote(dateStr) {
+    dateStr = dateStr.trim().substr(0, 10);
+
     let dateNote = attributeService.getNoteWithLabel(DATE_LABEL, dateStr);
 
     if (dateNote) {
@@ -163,12 +149,6 @@ function getDateNote(dateStr) {
     const rootNote = getRootCalendarNote();
     const monthNote = getMonthNote(dateStr, rootNote);
     const dayNumber = dateStr.substr(8, 2);
-
-    dateNote = getNoteStartingWith(monthNote.noteId, dayNumber);
-
-    if (dateNote) {
-        return dateNote;
-    }
 
     const dateObj = dateUtils.parseLocalDate(dateStr);
 

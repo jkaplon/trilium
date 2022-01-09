@@ -1,6 +1,7 @@
 import FlexContainer from "../widgets/containers/flex_container.js";
 import NoteTitleWidget from "../widgets/note_title.js";
 import NoteDetailWidget from "../widgets/note_detail.js";
+import QuickSearchWidget from "../widgets/quick_search.js";
 import NoteTreeWidget from "../widgets/note_tree.js";
 import MobileQuickSearchWidget from "../widgets/mobile_widgets/mobile_quick_search.js";
 import MobileGlobalButtonsWidget from "../widgets/mobile_widgets/mobile_global_buttons.js";
@@ -28,13 +29,19 @@ kbd {
     padding-right: 0.5em;
     color: var(--main-text-color);
 }
+.quick-search {
+    margin: 55px 0px 0px 0px;
+}
+.quick-search .dropdown-menu {
+    max-width: 350px;
+}
 </style>`;
 
 const FANCYTREE_CSS = `
 <style>
 .tree-wrapper {
     max-height: 100%;
-    margin-top: 55px;
+    margin-top: 0px;
     overflow-y: auto;
     contain: content;
     padding-left: 10px;
@@ -97,6 +104,7 @@ export default class MobileLayout {
                 .css('contain', 'content')
                 .child(new MobileQuickSearchWidget())
                 .child(new MobileGlobalButtonsWidget())
+                .child(new QuickSearchWidget())
                 .child(new NoteTreeWidget("main")
                     .cssBlock(FANCYTREE_CSS)))
             .child(new ScreenContainer("detail", "column")

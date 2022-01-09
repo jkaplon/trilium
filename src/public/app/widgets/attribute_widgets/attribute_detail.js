@@ -189,6 +189,7 @@ const ATTR_HELP = {
         "runAtHour": "On which hour should this run. Should be used together with <code>#run=hourly</code>. Can be defined multiple times for more runs during the day.",
         "disableInclusion": "scripts with this label won't be included into parent script execution.",
         "sorted": "keeps child notes sorted by title alphabetically",
+        "top": "keep given note on top in its parent (applies only on sorted parents)",
         "hidePromotedAttributes": "Hide promoted attributes on this note",
         "readOnly": "editor is in read only mode. Works only for text and code notes.",
         "autoReadOnlyDisabled": "text/code notes can be set automatically into read mode when they are too large. You can disable this behavior on per-note basis by adding this label to the note",
@@ -208,6 +209,11 @@ const ATTR_HELP = {
         "inbox": "default inbox location for new notes",
         "hoistedInbox": "default inbox location for new notes when hoisted to some ancestor of this note",
         "sqlConsoleHome": "default location of SQL console notes",
+        "bookmarked": "note with this label will appear in bookmarks",
+        "bookmarkFolder": "note with this label will appear in bookmarks as folder (allowing access to its children)",
+        "shareHiddenFromTree": "this note is hidden from left navigation tree, but still accessible with its URL",
+        "shareAlias": "define an alias using which the note will be available under https://your_trilium_host/share/[your_alias]",
+        "shareOmitDefaultCss": "default share page CSS will be omitted. Use when you make extensive styling changes.",
     },
     "relation": {
         "runOnNoteCreation": "executes when note is created on backend",
@@ -218,7 +224,10 @@ const ATTR_HELP = {
         "runOnAttributeChange": "executes when attribute is changed under this note",
         "template": "attached note's attributes will be inherited even without parent-child relationship. See template for details.",
         "renderNote": 'notes of type "render HTML note" will be rendered using a code note (HTML or script) and it is necessary to point using this relation to which note should be rendered',
-        "widget": "target of this relation will be executed and rendered as a widget in the sidebar"
+        "widget": "target of this relation will be executed and rendered as a widget in the sidebar",
+        "shareCss": "CSS note which will be injected into the share page. CSS note must be in the shared sub-tree as well. Consider using 'shareHiddenFromTree' and 'shareOmitDefaultCss' as well.",
+        "shareJs": "JavaScript note which will be injected into the share page. JS note must be in the shared sub-tree as well. Consider using 'shareHiddenFromTree'.",
+        "shareFavicon": "Favicon note to be set in the shared page. Typically you want to set it to share root and make it inheritable. Favicon note must be in the shared sub-tree as well. Consider using 'shareHiddenFromTree'.",
     }
 };
 
