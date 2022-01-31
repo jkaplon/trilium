@@ -101,7 +101,6 @@ export default class EditableCodeTypeWidget extends TypeWidget {
             lint: true,
             gutters: ["CodeMirror-lint-markers"],
             lineNumbers: true,
-            keyMap: "vim",
             styleActiveLine: true,
             extraKeys: {"Enter": "newlineAndIndentContinueMarkdownList"},
             tabindex: 300,

@@ -13,7 +13,6 @@ const CODE_MIRROR = {
         "libraries/codemirror/keymap/vim.js",
         "libraries/codemirror/addon/lint/lint.js",
         "libraries/codemirror/addon/lint/eslint.js",
-        "libraries/codemirror/keymap/vim.js",
         "libraries/codemirror/addon/edit/continuelist.js",
         "libraries/codemirror/addon/mode/overlay.js",
         "libraries/codemirror/addon/selection/active-line.js",
