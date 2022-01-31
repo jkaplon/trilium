@@ -26,7 +26,7 @@ async function sync() {
     try {
         return await syncMutexService.doExclusively(async () => {
             if (!syncOptions.isSyncSetup()) {
-                return { success: false, message: 'Sync not configured' };
+                return { success: false, errorCode: 'NOT_CONFIGURED', message: 'Sync not configured' };
             }
 
             let continueSync = false;
@@ -149,8 +149,8 @@ async function pullChanges(syncContext) {
 
         sql.transactional(() => {
             for (const {entityChange, entity} of entityChanges) {
-                const changeAppliedAlready = !entityChange.changeId
-                    || !!sql.getValue("SELECT id FROM entity_changes WHERE changeId = ?", [entityChange.changeId]);
+                const changeAppliedAlready = entityChange.changeId
+                    && !!sql.getValue("SELECT id FROM entity_changes WHERE changeId = ?", [entityChange.changeId]);
 
                 if (!changeAppliedAlready && !sourceIdService.isLocalSourceId(entityChange.sourceId)) {
                     if (!atLeastOnePullApplied) { // send only for first
