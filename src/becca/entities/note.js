@@ -6,8 +6,8 @@ const sql = require('../../services/sql');
 const utils = require('../../services/utils');
 const dateUtils = require('../../services/date_utils');
 const entityChangesService = require('../../services/entity_changes');
-const AbstractEntity = require("./abstract_entity.js");
-const NoteRevision = require("./note_revision.js");
+const AbstractEntity = require("./abstract_entity");
+const NoteRevision = require("./note_revision");
 
 const LABEL = 'label';
 const RELATION = 'relation';
@@ -986,7 +986,7 @@ class Note extends AbstractEntity {
             }
         }
         else {
-            const Attribute = require("./attribute.js");
+            const Attribute = require("./attribute");
 
             new Attribute({
                 noteId: this.noteId,
@@ -1018,7 +1018,7 @@ class Note extends AbstractEntity {
      * @return {Attribute}
      */
     addAttribute(type, name, value = "", isInheritable = false, position = 1000) {
-        const Attribute = require("./attribute.js");
+        const Attribute = require("./attribute");
 
         return new Attribute({
             noteId: this.noteId,

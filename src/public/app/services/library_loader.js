@@ -3,21 +3,24 @@ const CKEDITOR = {"js": ["libraries/ckeditor/ckeditor.js"]};
 const CODE_MIRROR = {
     js: [
         "libraries/codemirror/codemirror.js",
-        "libraries/codemirror/addon/mode/loadmode.js",
-        "libraries/codemirror/addon/mode/simple.js",
-        "libraries/codemirror/addon/fold/xml-fold.js",
+        "libraries/codemirror/addon/display/placeholder.js",
         "libraries/codemirror/addon/edit/matchbrackets.js",
         "libraries/codemirror/addon/edit/matchtags.js",
+        "libraries/codemirror/addon/fold/xml-fold.js",
+        "libraries/codemirror/addon/lint/lint.js",
+        "libraries/codemirror/addon/lint/eslint.js",
+        "libraries/codemirror/addon/mode/loadmode.js",
+        "libraries/codemirror/addon/mode/simple.js",
         "libraries/codemirror/addon/search/match-highlighter.js",
         "libraries/codemirror/mode/meta.js",
-        "libraries/codemirror/keymap/vim.js",
         "libraries/codemirror/addon/lint/lint.js",
         "libraries/codemirror/addon/lint/eslint.js",
         "libraries/codemirror/addon/edit/continuelist.js",
         "libraries/codemirror/addon/mode/overlay.js",
         "libraries/codemirror/addon/selection/active-line.js",
         "libraries/codemirror/addon/dialog/dialog.js",
-        "libraries/codemirror/addon/search/searchcursor.js"
+        "libraries/codemirror/addon/search/searchcursor.js",
+        "libraries/codemirror/keymap/vim.js"
     ],
     css: [
         "libraries/codemirror/codemirror.css",

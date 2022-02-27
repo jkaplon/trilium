@@ -2,17 +2,18 @@
 
 /**
  * @module sql
- *
- * TODO: some methods (like getValue()) could use raw rows
  */
 
 const log = require('./log');
 const Database = require('better-sqlite3');
 const dataDir = require('./data_dir');
 const cls = require('./cls');
+const fs = require("fs-extra");
 
 const dbConnection = new Database(dataDir.DOCUMENT_PATH);
 dbConnection.pragma('journal_mode = WAL');
+
+const LOG_ALL_QUERIES = false;
 
 [`exit`, `SIGINT`, `SIGUSR1`, `SIGUSR2`, `SIGTERM`].forEach(eventType => {
     process.on(eventType, () => {
@@ -135,6 +136,10 @@ function getRawRows(query, params = []) {
 }
 
 function iterateRows(query, params = []) {
+    if (LOG_ALL_QUERIES) {
+        console.log(query);
+    }
+
     return stmt(query).iterate(params);
 }
 
@@ -157,11 +162,11 @@ function execute(query, params = []) {
     return wrap(query, s => s.run(params));
 }
 
-function executeWithoutTransaction(query, params = []) {
-    dbConnection.run(query, params);
-}
-
 function executeMany(query, params) {
+    if (LOG_ALL_QUERIES) {
+        console.log(query);
+    }
+
     while (params.length > 0) {
         const curParams = params.slice(0, Math.min(params.length, PARAM_LIMIT));
         params = params.slice(curParams.length);
@@ -182,12 +187,20 @@ function executeMany(query, params) {
 }
 
 function executeScript(query) {
+    if (LOG_ALL_QUERIES) {
+        console.log(query);
+    }
+
     return dbConnection.exec(query);
 }
 
 function wrap(query, func) {
     const startTimestamp = Date.now();
     let result;
+
+    if (LOG_ALL_QUERIES) {
+        console.log(query);
+    }
 
     try {
         result = func(stmt(query));
@@ -264,6 +277,15 @@ function fillParamList(paramIds, truncate = true) {
     s.run(paramIds);
 }
 
+async function copyDatabase(targetFilePath) {
+    try {
+        fs.unlinkSync(targetFilePath);
+    } catch (e) {
+    } // unlink throws exception if the file did not exist
+
+    await dbConnection.backup(targetFilePath);
+}
+
 module.exports = {
     dbConnection,
     insert,
@@ -331,10 +353,10 @@ module.exports = {
      * @param {object[]} [params] - array of params if needed
      */
     execute,
-    executeWithoutTransaction,
     executeMany,
     executeScript,
     transactional,
     upsert,
-    fillParamList
+    fillParamList,
+    copyDatabase
 };

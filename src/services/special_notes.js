@@ -23,7 +23,7 @@ function getInboxNote(date) {
     }
     else {
         inbox = attributeService.getNoteWithLabel('inbox')
-            || dateNoteService.getDateNote(date);
+            || dateNoteService.getDayNote(date);
     }
 
     return inbox;
@@ -137,7 +137,7 @@ function saveSqlConsole(sqlConsoleNoteId) {
 
     const sqlConsoleHome =
         attributeService.getNoteWithLabel('sqlConsoleHome')
-        || dateNoteService.getDateNote(today);
+        || dateNoteService.getDayNote(today);
 
     const result = sqlConsoleNote.cloneTo(sqlConsoleHome.noteId);
 
@@ -179,7 +179,7 @@ function getSearchHome() {
         const today = dateUtils.localNowDate();
 
         return hoistedNote.searchNoteInSubtree('#searchHome')
-            || dateNoteService.getDateNote(today);
+            || dateNoteService.getDayNote(today);
     }
 }
 
@@ -222,8 +222,6 @@ function getShareRoot() {
 function createMissingSpecialNotes() {
     getSinglesNoteRoot();
     getSqlConsoleRoot();
-    getSinglesNoteRoot();
-    getSinglesNoteRoot();
     getGlobalNoteMap();
     // share root is not automatically created since it's visible in the tree and many won't need it/use it
 

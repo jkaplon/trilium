@@ -152,10 +152,6 @@ function sortNotes(parentNoteId, customSortBy = 'title', reverse = false, folder
             const topAEl = fetchValue(a, 'top');
             const topBEl = fetchValue(b, 'top');
 
-            console.log(a.title, topAEl);
-            console.log(b.title, topBEl);
-            console.log("comp", compare(topAEl, topBEl) && !reverse);
-
             if (topAEl !== topBEl) {
                 // since "top" should not be reversible, we'll reverse it once more to nullify this effect
                 return compare(topAEl, topBEl) * (reverse ? -1 : 1);
@@ -227,12 +223,15 @@ function setNoteToParent(noteId, prefix, parentNoteId) {
 
     if (branch) {
         if (!parentNoteId) {
+            log.info(`Removing note ${noteId} from parent ${parentNoteId}`);
+
             branch.markAsDeleted();
         }
         else {
-            branch.parentNoteId = parentNoteId;
-            branch.prefix = prefix;
-            branch.save();
+            const newBranch = branch.createClone(parentNoteId);
+            newBranch.save();
+
+            branch.markAsDeleted();
         }
     }
     else if (parentNoteId) {

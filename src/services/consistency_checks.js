@@ -13,6 +13,7 @@ const attributeService = require('./attributes');
 const noteRevisionService = require('./note_revisions');
 const becca = require("../becca/becca");
 const utils = require("../services/utils");
+const noteTypes = require("../services/note_types");
 
 class ConsistencyChecks {
     constructor(autoFix) {
@@ -281,11 +282,13 @@ class ConsistencyChecks {
     }
 
     findLogicIssues() {
+        const noteTypesStr = noteTypes.map(nt => `'${nt}'`).join(", ");
+
         this.findAndFixIssues(`
                     SELECT noteId, type
                     FROM notes
                     WHERE isDeleted = 0
-                      AND type NOT IN ('text', 'code', 'render', 'file', 'image', 'search', 'relation-map', 'book', 'note-map', 'mermaid')`,
+                      AND type NOT IN (${noteTypesStr})`,
             ({noteId, type}) => {
                 if (this.autoFix) {
                     const note = becca.getNote(noteId);
@@ -567,7 +570,7 @@ class ConsistencyChecks {
         this.runEntityChangeChecks("note_revisions", "noteRevisionId");
         this.runEntityChangeChecks("branches", "branchId");
         this.runEntityChangeChecks("attributes", "attributeId");
-        this.runEntityChangeChecks("api_tokens", "apiTokenId");
+        this.runEntityChangeChecks("etapi_tokens", "etapiTokenId");
         this.runEntityChangeChecks("options", "name");
     }
 
@@ -660,7 +663,7 @@ class ConsistencyChecks {
             return `${tableName}: ${count}`;
         }
 
-        const tables = [ "notes", "note_revisions", "branches", "attributes", "api_tokens" ];
+        const tables = [ "notes", "note_revisions", "branches", "attributes", "etapi_tokens" ];
 
         log.info("Table counts: " + tables.map(tableName => getTableRowCount(tableName)).join(", "));
     }
@@ -693,14 +696,14 @@ class ConsistencyChecks {
 
 function getBlankContent(isProtected, type, mime) {
     if (isProtected) {
-        return null; // this is wrong for protected non-erased notes but we cannot create a valid value without password
+        return null; // this is wrong for protected non-erased notes, but we cannot create a valid value without password
     }
 
     if (mime === 'application/json') {
         return '{}';
     }
 
-    return ''; // empty string might be wrong choice for some note types but it's a best guess
+    return ''; // empty string might be wrong choice for some note types, but it's the best guess
 }
 
 function logFix(message) {

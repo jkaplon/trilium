@@ -45,9 +45,7 @@ async function initDbConnection() {
     dbReady.resolve();
 }
 
-async function createInitialDatabase(username, password, theme) {
-    log.info("Creating database schema ...");
-
+async function createInitialDatabase() {
     if (isDbInitialized()) {
         throw new Error("DB is already initialized");
     }
@@ -57,15 +55,17 @@ async function createInitialDatabase(username, password, theme) {
 
     let rootNote;
 
-    log.info("Creating root note ...");
-
     sql.transactional(() => {
+        log.info("Creating database schema ...");
+
         sql.executeScript(schema);
 
         require("../becca/becca_loader").load();
 
         const Note = require("../becca/entities/note");
         const Branch = require("../becca/entities/branch");
+
+        log.info("Creating root note ...");
 
         rootNote = new Note({
             noteId: 'root',
@@ -87,9 +87,9 @@ async function createInitialDatabase(username, password, theme) {
         const optionsInitService = require('./options_init');
 
         optionsInitService.initDocumentOptions();
-        optionsInitService.initSyncedOptions(username, password);
-        optionsInitService.initNotSyncedOptions(true, { theme });
+        optionsInitService.initNotSyncedOptions(true, {});
         optionsInitService.initStartupOptions();
+        require("./password").resetPassword();
     });
 
     log.info("Importing demo content ...");
@@ -151,6 +151,14 @@ function setDbAsInitialized() {
     }
 }
 
+function optimize() {
+    log.info("Optimizing database");
+
+    sql.execute("PRAGMA optimize");
+
+    log.info("Optimization finished.");
+}
+
 dbReady.then(() => {
     if (config.General && config.General.noBackup === true) {
         log.info("Disabling scheduled backups.");
@@ -162,6 +170,11 @@ dbReady.then(() => {
 
     // kickoff first backup soon after start up
     setTimeout(() => require('./backup').regularBackup(), 5 * 60 * 1000);
+
+    // optimize is usually inexpensive no-op so running it semi-frequently is not a big deal
+    setTimeout(() => optimize(), 60 * 60 * 1000);
+
+    setInterval(() => optimize(), 10 * 60 * 60 * 1000);
 });
 
 log.info("DB size: " + sql.getValue("SELECT page_count * page_size / 1000 as size FROM pragma_page_count(), pragma_page_size()") + " KB");
@@ -170,7 +183,6 @@ module.exports = {
     dbReady,
     schemaExists,
     isDbInitialized,
-    initDbConnection,
     createInitialDatabase,
     createDatabaseForSync,
     setDbAsInitialized

@@ -13,6 +13,7 @@ const fs = require("fs");
 const becca = require("../../becca/becca");
 const RESOURCE_DIR = require('../../services/resource_dir').RESOURCE_DIR;
 const archiver = require('archiver');
+const log = require("../log");
 
 /**
  * @param {TaskContext} taskContext
@@ -52,12 +53,12 @@ function exportToZip(taskContext, branch, format, res) {
     function getDataFileName(note, baseFileName, existingFileNames) {
         let fileName = baseFileName;
 
+        let existingExtension = path.extname(fileName).toLowerCase();
+        let newExtension;
+
         if (fileName.length > 30) {
             fileName = fileName.substr(0, 30);
         }
-
-        let existingExtension = path.extname(fileName).toLowerCase();
-        let newExtension;
 
         // following two are handled specifically since we always want to have these extensions no matter the automatic detection
         // and/or existing detected extensions in the note name
@@ -150,7 +151,8 @@ function exportToZip(taskContext, branch, format, res) {
 
         noteIdToMeta[note.noteId] = meta;
 
-        const childBranches = note.getChildBranches();
+        const childBranches = note.getChildBranches()
+            .filter(branch => branch.noteId !== 'hidden');
 
         const available = !note.isProtected || protectedSessionService.isProtectedSessionAvailable();
 
@@ -253,7 +255,9 @@ ${content}
 </html>`;
             }
 
-            return html.prettyPrint(content, {indent_size: 2});
+            return content.length < 100000
+                ? html.prettyPrint(content, {indent_size: 2})
+                : content;
         }
         else if (noteMeta.format === 'markdown') {
             let markdownContent = mdService.toMarkdown(content);
@@ -273,6 +277,8 @@ ${content}
     const notePaths = {};
 
     function saveNote(noteMeta, filePathPrefix) {
+        log.info(`Exporting note ${noteMeta.noteId}`);
+
         if (noteMeta.isClone) {
             const targetUrl = getTargetUrl(noteMeta.noteId, noteMeta);
 

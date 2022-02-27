@@ -4,7 +4,7 @@ const log = require('./log');
 const sql = require('./sql');
 const optionService = require('./options');
 const utils = require('./utils');
-const sourceIdService = require('./source_id');
+const instanceId = require('./member_id');
 const dateUtils = require('./date_utils');
 const syncUpdateService = require('./sync_update');
 const contentHashService = require('./content_hash');
@@ -107,11 +107,11 @@ async function doLogin() {
         hash: hash
     });
 
-    if (sourceIdService.isLocalSourceId(resp.sourceId)) {
-        throw new Error(`Sync server has source ID ${resp.sourceId} which is also local. This usually happens when the sync client is (mis)configured to sync with itself (URL points back to client) instead of the correct sync server.`);
+    if (resp.instanceId === instanceId) {
+        throw new Error(`Sync server has member ID ${resp.instanceId} which is also local. This usually happens when the sync client is (mis)configured to sync with itself (URL points back to client) instead of the correct sync server.`);
     }
 
-    syncContext.sourceId = resp.sourceId;
+    syncContext.instanceId = resp.instanceId;
 
     const lastSyncedPull = getLastSyncedPull();
 
@@ -131,46 +131,46 @@ async function pullChanges(syncContext) {
 
     while (true) {
         const lastSyncedPull = getLastSyncedPull();
-        const changesUri = '/api/sync/changed?lastEntityChangeId=' + lastSyncedPull;
+        const logMarkerId = utils.randomString(10); // to easily pair sync events between client and server logs
+        const changesUri = `/api/sync/changed?instanceId=${instanceId}&lastEntityChangeId=${lastSyncedPull}&logMarkerId=${logMarkerId}`;
 
         const startDate = Date.now();
 
         const resp = await syncRequest(syncContext, 'GET', changesUri);
+        const {entityChanges, lastEntityChangeId} = resp;
+
+        outstandingPullCount = resp.outstandingPullCount;
 
         const pulledDate = Date.now();
-
-        outstandingPullCount = Math.max(0, resp.maxEntityChangeId - lastSyncedPull);
-
-        const {entityChanges} = resp;
-
-        if (entityChanges.length === 0) {
-            break;
-        }
 
         sql.transactional(() => {
             for (const {entityChange, entity} of entityChanges) {
                 const changeAppliedAlready = entityChange.changeId
                     && !!sql.getValue("SELECT id FROM entity_changes WHERE changeId = ?", [entityChange.changeId]);
 
-                if (!changeAppliedAlready && !sourceIdService.isLocalSourceId(entityChange.sourceId)) {
+                if (!changeAppliedAlready) {
                     if (!atLeastOnePullApplied) { // send only for first
                         ws.syncPullInProgress();
 
                         atLeastOnePullApplied = true;
                     }
 
-                    syncUpdateService.updateEntity(entityChange, entity);
+                    syncUpdateService.updateEntity(entityChange, entity, syncContext.instanceId);
                 }
-
-                outstandingPullCount = Math.max(0, resp.maxEntityChangeId - entityChange.id);
             }
 
-            setLastSyncedPull(entityChanges[entityChanges.length - 1].entityChange.id);
+            if (lastSyncedPull !== lastEntityChangeId) {
+                setLastSyncedPull(lastEntityChangeId);
+            }
         });
 
-        const sizeInKb = Math.round(JSON.stringify(resp).length / 1024);
+        if (entityChanges.length === 0) {
+            break;
+        } else {
+            const sizeInKb = Math.round(JSON.stringify(resp).length / 1024);
 
-        log.info(`Pulled ${entityChanges.length} changes in ${sizeInKb} KB, starting at entityChangeId=${lastSyncedPull} in ${pulledDate - startDate}ms and applied them in ${Date.now() - pulledDate}ms, ${outstandingPullCount} outstanding pulls`);
+            log.info(`Sync ${logMarkerId}: Pulled ${entityChanges.length} changes in ${sizeInKb} KB, starting at entityChangeId=${lastSyncedPull} in ${pulledDate - startDate}ms and applied them in ${Date.now() - pulledDate}ms, ${outstandingPullCount} outstanding pulls`);
+        }
     }
 
     log.info("Finished pull");
@@ -189,10 +189,9 @@ async function pushChanges(syncContext) {
         }
 
         const filteredEntityChanges = entityChanges.filter(entityChange => {
-            if (entityChange.sourceId === syncContext.sourceId) {
+            if (entityChange.instanceId === syncContext.instanceId) {
                 // this may set lastSyncedPush beyond what's actually sent (because of size limit)
                 // so this is applied to the database only if there's no actual update
-                // TODO: it would be better to simplify this somehow
                 lastSyncedPush = entityChange.id;
 
                 return false;
@@ -210,17 +209,19 @@ async function pushChanges(syncContext) {
             continue;
         }
 
-        const entityChangesRecords = getEntityChangesRecords(filteredEntityChanges);
+        const entityChangesRecords = getEntityChangeRecords(filteredEntityChanges);
         const startDate = new Date();
 
-        await syncRequest(syncContext, 'PUT', '/api/sync/update', {
-            sourceId: sourceIdService.getCurrentSourceId(),
-            entities: entityChangesRecords
+        const logMarkerId = utils.randomString(10); // to easily pair sync events between client and server logs
+
+        await syncRequest(syncContext, 'PUT', `/api/sync/update?logMarkerId=${logMarkerId}`, {
+            entities: entityChangesRecords,
+            instanceId
         });
 
         ws.syncPushInProgress();
 
-        log.info(`Pushing ${entityChangesRecords.length} sync changes in ` + (Date.now() - startDate.getTime()) + "ms");
+        log.info(`Sync ${logMarkerId}: Pushing ${entityChangesRecords.length} sync changes in ` + (Date.now() - startDate.getTime()) + "ms");
 
         lastSyncedPush = entityChangesRecords[entityChangesRecords.length - 1].entityChange.id;
 
@@ -331,7 +332,7 @@ function getEntityChangeRow(entityName, entityId) {
     }
 }
 
-function getEntityChangesRecords(entityChanges) {
+function getEntityChangeRecords(entityChanges) {
     const records = [];
     let length = 0;
 
@@ -343,13 +344,6 @@ function getEntityChangesRecords(entityChanges) {
         }
 
         const entity = getEntityChangeRow(entityChange.entityName, entityChange.entityId);
-
-        if (entityChange.entityName === 'options' && !entity.isSynced) {
-            // if non-synced entities should count towards "lastSyncedPush"
-            records.push({entityChange});
-
-            continue;
-        }
 
         const record = { entityChange, entity };
 
@@ -422,7 +416,7 @@ require("../becca/becca_loader").beccaLoaded.then(() => {
 module.exports = {
     sync,
     login,
-    getEntityChangesRecords,
+    getEntityChangeRecords,
     getOutstandingPullCount,
     getMaxEntityChangeId
 };

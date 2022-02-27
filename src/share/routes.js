@@ -1,7 +1,7 @@
 const shaca = require("./shaca/shaca");
 const shacaLoader = require("./shaca/shaca_loader");
 const shareRoot = require("./share_root");
-const contentRenderer = require("./content_renderer.js");
+const contentRenderer = require("./content_renderer");
 
 function getSharedSubTreeRoot(note) {
     if (note.noteId === shareRoot.SHARE_ROOT_NOTE_ID) {
@@ -21,13 +21,7 @@ function getSharedSubTreeRoot(note) {
 }
 
 function register(router) {
-    router.get('/share/:shareId', (req, res, next) => {
-        const {shareId} = req.params;
-
-        shacaLoader.ensureLoad();
-
-        const note = shaca.aliasToNote[shareId] || shaca.notes[shareId];
-
+    function renderNote(note, res) {
         if (note) {
             const {header, content, isEmpty} = contentRenderer.getContent(note);
 
@@ -40,10 +34,25 @@ function register(router) {
                 isEmpty,
                 subRoot
             });
-        }
-        else {
+        } else {
             res.status(404).render("share/404");
         }
+    }
+
+    router.get(['/share', '/share/'], (req, res, next) => {
+        shacaLoader.ensureLoad();
+
+        renderNote(shaca.shareRootNote, res);
+    });
+
+    router.get('/share/:shareId', (req, res, next) => {
+        const {shareId} = req.params;
+
+        shacaLoader.ensureLoad();
+
+        const note = shaca.aliasToNote[shareId] || shaca.notes[shareId];
+
+        renderNote(note, res);
     });
 
     router.get('/share/api/notes/:noteId', (req, res, next) => {
