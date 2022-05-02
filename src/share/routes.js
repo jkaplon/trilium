@@ -20,23 +20,39 @@ function getSharedSubTreeRoot(note) {
     return getSharedSubTreeRoot(parentNote);
 }
 
+function addNoIndexHeader(note, res) {
+    if (note.hasLabel('shareDisallowRobotIndexing')) {
+        res.setHeader('X-Robots-Tag', 'noindex');
+    }
+}
+
 function register(router) {
     function renderNote(note, res) {
-        if (note) {
-            const {header, content, isEmpty} = contentRenderer.getContent(note);
-
-            const subRoot = getSharedSubTreeRoot(note);
-
-            res.render("share/page", {
-                note,
-                header,
-                content,
-                isEmpty,
-                subRoot
-            });
-        } else {
+        if (!note) {
             res.status(404).render("share/404");
+            return;
         }
+
+        addNoIndexHeader(note, res);
+
+        if (note.hasLabel('shareRaw') || ['image', 'file'].includes(note.type)) {
+            res.setHeader('Content-Type', note.mime);
+
+            res.send(note.getContent());
+            return;
+        }
+
+        const {header, content, isEmpty} = contentRenderer.getContent(note);
+
+        const subRoot = getSharedSubTreeRoot(note);
+
+        res.render("share/page", {
+            note,
+            header,
+            content,
+            isEmpty,
+            subRoot
+        });
     }
 
     router.get(['/share', '/share/'], (req, res, next) => {
@@ -46,9 +62,9 @@ function register(router) {
     });
 
     router.get('/share/:shareId', (req, res, next) => {
-        const {shareId} = req.params;
-
         shacaLoader.ensureLoad();
+
+        const {shareId} = req.params;
 
         const note = shaca.aliasToNote[shareId] || shaca.notes[shareId];
 
@@ -56,23 +72,31 @@ function register(router) {
     });
 
     router.get('/share/api/notes/:noteId', (req, res, next) => {
+        shacaLoader.ensureLoad();
+
         const {noteId} = req.params;
         const note = shaca.getNote(noteId);
 
         if (!note) {
-            return res.status(404).send(`Note ${noteId} not found`);
+            return res.status(404).send(`Note '${noteId}' not found`);
         }
+
+        addNoIndexHeader(note, res);
 
         res.json(note.getPojoWithAttributes());
     });
 
     router.get('/share/api/notes/:noteId/download', (req, res, next) => {
+        shacaLoader.ensureLoad();
+
         const {noteId} = req.params;
         const note = shaca.getNote(noteId);
 
         if (!note) {
-            return res.status(404).send(`Note ${noteId} not found`);
+            return res.status(404).send(`Note '${noteId}' not found`);
         }
+
+        addNoIndexHeader(note, res);
 
         const utils = require("../services/utils");
 
@@ -87,28 +111,36 @@ function register(router) {
     });
 
     router.get('/share/api/images/:noteId/:filename', (req, res, next) => {
+        shacaLoader.ensureLoad();
+
         const image = shaca.getNote(req.params.noteId);
 
         if (!image) {
-            return res.status(404).send(`Note ${noteId} not found`);
+            return res.status(404).send(`Note '${req.params.noteId}' not found`);
         }
         else if (image.type !== 'image') {
             return res.status(400).send("Requested note is not an image");
         }
 
-        res.set('Content-Type', image.mime);
+        addNoIndexHeader(image, res);
+
+        res.setHeader('Content-Type', image.mime);
 
         res.send(image.getContent());
     });
 
     // used for PDF viewing
     router.get('/share/api/notes/:noteId/view', (req, res, next) => {
+        shacaLoader.ensureLoad();
+
         const {noteId} = req.params;
         const note = shaca.getNote(noteId);
 
         if (!note) {
-            return res.status(404).send(`Note ${noteId} not found`);
+            return res.status(404).send(`Note '${noteId}' not found`);
         }
+
+        addNoIndexHeader(note, res);
 
         res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         res.setHeader('Content-Type', note.mime);

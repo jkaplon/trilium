@@ -138,11 +138,14 @@ function processContent(images, note, content) {
                 value: imageNote.noteId
             }).save();
 
-            console.log(`Replacing ${imageId} with ${url}`);
+            log.info(`Replacing '${imageId}' with '${url}' in note '${note.noteId}'`);
 
             rewrittenContent = utils.replaceAll(rewrittenContent, imageId, url);
         }
     }
+
+    // fallback if parsing/downloading images fails for some reason on the extension side (
+    rewrittenContent = noteService.downloadImages(note.noteId, rewrittenContent);
 
     return rewrittenContent;
 }

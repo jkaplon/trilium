@@ -20,7 +20,7 @@ function getNotesWithLabel(name, value) {
 
 // TODO: should be in search service
 /** @returns {Note|null} */
-function getNoteWithLabel(name, value) {
+function getNoteWithLabel(name, value = undefined) {
     // optimized version (~20 times faster) without using normal search, useful for e.g. finding date notes
     const attrs = becca.findAttributes('label', name);
 
@@ -128,10 +128,6 @@ function isAttributeDangerous(type, name) {
     );
 }
 
-function getBuiltinAttributeNames() {
-    return BUILTIN_ATTRIBUTES;
-}
-
 function sanitizeAttributeName(origName) {
     let fixedName;
 
@@ -156,6 +152,5 @@ module.exports = {
     getAttributeNames,
     isAttributeType,
     isAttributeDangerous,
-    getBuiltinAttributeNames,
     sanitizeAttributeName
 };

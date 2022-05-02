@@ -46,7 +46,7 @@ function register(router) {
         'mime': [v.notNull, v.isString],
         'content': [v.notNull, v.isString],
         'notePosition': [v.notNull, v.isInteger],
-        'prefix': [v.notNull, v.isInteger],
+        'prefix': [v.notNull, v.isString],
         'isExpanded': [v.notNull, v.isBoolean],
         'noteId': [v.notNull, v.isValidEntityId],
         'branchId': [v.notNull, v.isValidEntityId],
@@ -98,7 +98,7 @@ function register(router) {
             return res.sendStatus(204);
         }
 
-        noteService.deleteNote(note, null, new TaskContext('no-progress-reporting'));
+        note.deleteNote(null, new TaskContext('no-progress-reporting'));
 
         res.sendStatus(204);
     });
@@ -162,7 +162,7 @@ function parseBoolean(obj, name) {
     return obj[name] === 'true';
 }
 
-function parseInteger(obj, name) {
+function parseOrderDirection(obj, name) {
     if (!(name in obj)) {
         return undefined;
     }
@@ -176,7 +176,7 @@ function parseInteger(obj, name) {
     return integer;
 }
 
-function parseOrderDirection(obj, name) {
+function parseInteger(obj, name) {
     if (!(name in obj)) {
         return undefined;
     }

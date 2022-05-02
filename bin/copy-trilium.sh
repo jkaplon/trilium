@@ -5,7 +5,7 @@ if [[ $# -eq 0 ]] ; then
     exit 1
 fi
 
-n exec 16.13.2 npm run webpack
+n exec 16.14.2 npm run webpack
 
 DIR=$1
 
@@ -13,6 +13,9 @@ rm -rf $DIR
 mkdir $DIR
 
 echo "Copying Trilium to build directory $DIR"
+
+cp -r dump-db $DIR/
+rm -rf $DIR/dump-db/node_modules
 
 cp -r images $DIR/
 cp -r libraries $DIR/
@@ -27,7 +30,7 @@ cp -r electron.js $DIR/
 cp webpack-* $DIR/
 
 # run in subshell (so we return to original dir)
-(cd $DIR && n exec 16.13.2 npm install --only=prod)
+(cd $DIR && n exec 16.14.2 npm install --only=prod)
 
 # cleanup of useless files in dependencies
 rm -r $DIR/node_modules/image-q/demo
@@ -44,8 +47,11 @@ find $DIR/node_modules -name demo -exec rm -rf {} \;
 
 find $DIR/libraries -name "*.map" -type f -delete
 
+cp $DIR/src/public/app/share.js $DIR/src/public/app-dist/
+
 rm -rf $DIR/src/public/app
 
 sed -i -e 's/app\/desktop.js/app-dist\/desktop.js/g' $DIR/src/views/desktop.ejs
 sed -i -e 's/app\/mobile.js/app-dist\/mobile.js/g' $DIR/src/views/mobile.ejs
 sed -i -e 's/app\/setup.js/app-dist\/setup.js/g' $DIR/src/views/setup.ejs
+sed -i -e 's/app\/share.js/app-dist\/share.js/g' $DIR/src/views/share/*.ejs

@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <% if (note.hasRelation("shareFavicon")) { %>
     <link rel="shortcut icon" href="api/notes/<%= note.getRelation("shareFavicon").value %>/download">
     <% } else { %>
@@ -20,6 +21,9 @@
     <% } %>
     <% for (const jsRelation of note.getRelations("shareJs")) { %>
         <script type="module" src="api/notes/<%= jsRelation.value %>/download"></script>
+    <% } %>
+    <% if (note.hasLabel('shareDisallowRobotIndexing')) { %>
+        <meta name="robots" content="noindex,follow" />
     <% } %>
     <%- header %>
     <title><%= note.title %></title>
@@ -46,7 +50,7 @@
             </div>
         <% } %>
 
-        <% if (note.hasChildren()) { %>
+        <% if (note.hasVisibleChildren()) { %>
             <nav id="childLinks" class="<% if (isEmpty) { %>grid<% } else { %>list<% } %>">
                 <% if (!isEmpty) { %>
                     <hr>
@@ -54,7 +58,7 @@
                 <% } %>
 
                 <ul>
-                    <% for (const childNote of note.getChildNotes()) { %>
+                    <% for (const childNote of note.getVisibleChildNotes()) { %>
                         <li>
                             <a href="<%= childNote.shareId %>"
                                class="type-<%= childNote.type %>"><%= childNote.title %></a>
@@ -67,7 +71,7 @@
         <% } %>
     </div>
 
-    <% if (subRoot.hasChildren()) { %>
+    <% if (subRoot.hasVisibleChildren()) { %>
         <button id="toggleMenuButton"></button>
 
         <nav id="menu">

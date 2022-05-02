@@ -73,7 +73,7 @@ function deleteNote(req) {
 
     const taskContext = TaskContext.getInstance(taskId, 'delete-notes');
 
-    noteService.deleteNote(note, deleteId, taskContext);
+    note.deleteNote(deleteId, taskContext);
 
     if (eraseNotes) {
         noteService.eraseNotesWithDeleteId(deleteId);
@@ -96,7 +96,7 @@ function sortChildNotes(req) {
     const noteId = req.params.noteId;
     const {sortBy, sortDirection} = req.body;
 
-    log.info(`Sorting ${noteId} children with ${sortBy} ${sortDirection}`);
+    log.info(`Sorting '${noteId}' children with ${sortBy} ${sortDirection}`);
 
     const reverse = sortDirection === 'desc';
 
@@ -153,7 +153,10 @@ function getRelationMap(req) {
         .split(",")
         .map(token => token.trim());
 
-    console.log("displayRelations", displayRelations);
+    const hideRelationsVal = relationMapNote.getLabelValue('hideRelations');
+    const hideRelations = !hideRelationsVal ? [] : hideRelationsVal
+        .split(",")
+        .map(token => token.trim());
 
     const foundNoteIds = sql.getColumn(`SELECT noteId FROM notes WHERE isDeleted = 0 AND noteId IN (${questionMarks})`, noteIds);
     const notes = becca.getNotes(foundNoteIds);
@@ -163,7 +166,9 @@ function getRelationMap(req) {
 
         resp.relations = resp.relations.concat(note.getRelations()
             .filter(relation => !relation.isAutoLink() || displayRelations.includes(relation.name))
-            .filter(relation => displayRelations.length === 0 || displayRelations.includes(relation.name))
+            .filter(relation => displayRelations.length > 0
+                ? displayRelations.includes(relation.name)
+                : !hideRelations.includes(relation.name))
             .filter(relation => noteIds.includes(relation.value))
             .map(relation => ({
                 attributeId: relation.attributeId,
@@ -191,11 +196,11 @@ function changeTitle(req) {
     const note = becca.getNote(noteId);
 
     if (!note) {
-        return [404, `Note ${noteId} has not been found`];
+        return [404, `Note '${noteId}' has not been found`];
     }
 
     if (!note.isContentAvailable()) {
-        return [400, `Note ${noteId} is not available for change`];
+        return [400, `Note '${noteId}' is not available for change`];
     }
 
     const noteTitleChanged = note.title !== title;
@@ -284,10 +289,10 @@ function uploadModifiedFile(req) {
     const note = becca.getNote(noteId);
 
     if (!note) {
-        return [404, `Note ${noteId} has not been found`];
+        return [404, `Note '${noteId}' has not been found`];
     }
 
-    log.info(`Updating note ${noteId} with content from ${filePath}`);
+    log.info(`Updating note '${noteId}' with content from ${filePath}`);
 
     noteRevisionService.createNoteRevision(note);
 
