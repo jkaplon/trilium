@@ -10,6 +10,7 @@ import FileTypeWidget from "./type_widgets/file.js";
 import ImageTypeWidget from "./type_widgets/image.js";
 import RenderTypeWidget from "./type_widgets/render.js";
 import RelationMapTypeWidget from "./type_widgets/relation_map.js";
+import CanvasTypeWidget from "./type_widgets/canvas.js";
 import ProtectedSessionTypeWidget from "./type_widgets/protected_session.js";
 import BookTypeWidget from "./type_widgets/book.js";
 import appContext from "../services/app_context.js";
@@ -50,6 +51,7 @@ const typeWidgetClasses = {
     'search': NoneTypeWidget,
     'render': RenderTypeWidget,
     'relation-map': RelationMapTypeWidget,
+    'canvas': CanvasTypeWidget,
     'protected-session': ProtectedSessionTypeWidget,
     'book': BookTypeWidget,
     'note-map': NoteMapTypeWidget
@@ -66,7 +68,7 @@ export default class NoteDetailWidget extends NoteContextAwareWidget {
             const {noteId} = note;
 
             const dto = note.dto;
-            dto.content = this.getTypeWidget().getContent();
+            dto.content = await this.getTypeWidget().getContent();
 
             // for read only notes
             if (dto.content === undefined) {
@@ -145,11 +147,15 @@ export default class NoteDetailWidget extends NoteContextAwareWidget {
         this.checkFullHeight();
     }
 
+    /**
+     * sets full height of container that contains note content for a subset of note-types
+     */
     checkFullHeight() {
         // https://github.com/zadam/trilium/issues/2522
         this.$widget.toggleClass("full-height",
             !this.noteContext.hasNoteList()
-            && ['editable-text', 'editable-code'].includes(this.type));
+            && ['editable-text', 'editable-code', 'canvas'].includes(this.type)
+            && this.mime !== 'text/x-sqlite;schema=trilium');
     }
 
     getTypeWidget() {
@@ -210,7 +216,7 @@ export default class NoteDetailWidget extends NoteContextAwareWidget {
         }
     }
 
-    async beforeTabRemoveEvent({ntxIds}) {
+    async beforeNoteContextRemoveEvent({ntxIds}) {
         if (this.isNoteContext(ntxIds)) {
             await this.spacedUpdate.updateNowIfNecessary();
         }
@@ -301,6 +307,16 @@ export default class NoteDetailWidget extends NoteContextAwareWidget {
         }
     }
 
+    async executeInActiveNoteDetailWidgetEvent({callback}) {
+        if (!this.isActiveNoteContext()) {
+            return;
+        }
+
+        await this.initialized;
+
+        callback(this);
+    }
+
     async cutIntoNoteCommand() {
         const note = appContext.tabManager.getActiveContextNote();
 
@@ -311,7 +327,8 @@ export default class NoteDetailWidget extends NoteContextAwareWidget {
         // without await as this otherwise causes deadlock through component mutex
         noteCreateService.createNote(appContext.tabManager.getActiveContextNotePath(), {
             isProtected: note.isProtected,
-            saveSelection: true
+            saveSelection: true,
+            textEditor: await this.noteContext.getTextEditor()
         });
     }
 
@@ -324,5 +341,17 @@ export default class NoteDetailWidget extends NoteContextAwareWidget {
         if (this.noteContext.isActive()) {
             this.refresh();
         }
+    }
+
+    async executeWithTypeWidgetEvent({resolve, ntxId}) {
+        if (!this.isNoteContext(ntxId)) {
+            return;
+        }
+
+        await this.initialized;
+
+        await this.getWidgetType();
+
+        resolve(this.getTypeWidget());
     }
 }

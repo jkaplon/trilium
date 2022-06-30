@@ -1,3 +1,6 @@
+const express = require('express');
+const path = require('path');
+
 const shaca = require("./shaca/shaca");
 const shacaLoader = require("./shaca/shaca_loader");
 const shareRoot = require("./share_root");
@@ -36,9 +39,9 @@ function register(router) {
         addNoIndexHeader(note, res);
 
         if (note.hasLabel('shareRaw') || ['image', 'file'].includes(note.type)) {
-            res.setHeader('Content-Type', note.mime);
+            res.setHeader('Content-Type', note.mime)
+                .send(note.getContent());
 
-            res.send(note.getContent());
             return;
         }
 
@@ -54,6 +57,8 @@ function register(router) {
             subRoot
         });
     }
+
+    router.use('/share/canvas_share.js', express.static(path.join(__dirname, 'canvas_share.js')));
 
     router.get(['/share', '/share/'], (req, res, next) => {
         shacaLoader.ensureLoad();
@@ -78,7 +83,9 @@ function register(router) {
         const note = shaca.getNote(noteId);
 
         if (!note) {
-            return res.status(404).send(`Note '${noteId}' not found`);
+            return res.setHeader("Content-Type", "text/plain")
+                .status(404)
+                .send(`Note '${noteId}' not found`);
         }
 
         addNoIndexHeader(note, res);
@@ -93,7 +100,9 @@ function register(router) {
         const note = shaca.getNote(noteId);
 
         if (!note) {
-            return res.status(404).send(`Note '${noteId}' not found`);
+            return res.setHeader("Content-Type", "text/plain")
+                .status(404)
+                .send(`Note '${noteId}' not found`);
         }
 
         addNoIndexHeader(note, res);
@@ -110,23 +119,46 @@ function register(router) {
         res.send(note.getContent());
     });
 
+    // :filename is not used by trilium, but instead used for "save as" to assign a human readable filename
     router.get('/share/api/images/:noteId/:filename', (req, res, next) => {
         shacaLoader.ensureLoad();
 
         const image = shaca.getNote(req.params.noteId);
 
         if (!image) {
-            return res.status(404).send(`Note '${req.params.noteId}' not found`);
+            return res.setHeader('Content-Type', 'text/plain')
+                .status(404)
+                .send(`Note '${req.params.noteId}' not found`);
         }
-        else if (image.type !== 'image') {
-            return res.status(400).send("Requested note is not an image");
+        else if (!["image", "canvas"].includes(image.type)) {
+            return res.setHeader('Content-Type', 'text/plain')
+                .status(400)
+                .send("Requested note is not a shareable image");
+        } else if (image.type === "canvas") {
+            /**
+             * special "image" type. the canvas is actually type application/json
+             * to avoid bitrot and enable usage as referenced image the svg is included.
+             */
+            const content = image.getContent();
+            try {
+                const data = JSON.parse(content);
+
+                const svg = data.svg || '<svg />';
+                addNoIndexHeader(image, res);
+                res.set('Content-Type', "image/svg+xml");
+                res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+                res.send(svg);
+            } catch(err) {
+                res.setHeader('Content-Type', 'text/plain')
+                    .status(500)
+                    .send("there was an error parsing excalidraw to svg");
+            }
+        } else {
+            // normal image
+            res.set('Content-Type', image.mime);
+            addNoIndexHeader(image, res);
+            res.send(image.getContent());
         }
-
-        addNoIndexHeader(image, res);
-
-        res.setHeader('Content-Type', image.mime);
-
-        res.send(image.getContent());
     });
 
     // used for PDF viewing
@@ -137,7 +169,9 @@ function register(router) {
         const note = shaca.getNote(noteId);
 
         if (!note) {
-            return res.status(404).send(`Note '${noteId}' not found`);
+            return res.setHeader('Content-Type', 'text/plain')
+                .status(404)
+                .send(`Note '${noteId}' not found`);
         }
 
         addNoIndexHeader(note, res);

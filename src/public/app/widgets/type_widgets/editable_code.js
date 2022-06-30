@@ -202,4 +202,14 @@ export default class EditableCodeTypeWidget extends TypeWidget {
             });
         }
     }
+
+    async executeWithCodeEditorEvent({resolve, ntxId}) {
+        if (!this.isNoteContext(ntxId)) {
+            return;
+        }
+
+        await this.initialized;
+
+        resolve(this.codeEditor);
+    }
 }

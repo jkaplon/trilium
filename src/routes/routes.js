@@ -120,6 +120,10 @@ function apiResultHandler(req, res, result) {
 
 function send(res, statusCode, response) {
     if (typeof response === 'string') {
+        if (statusCode >= 400) {
+            res.setHeader("Content-Type", "text/plain");
+        }
+
         res.status(statusCode).send(response);
 
         return response.length;
@@ -167,7 +171,9 @@ function route(method, path, middleware, routeHandler, resultHandler, transactio
                         .catch(e => {
                             log.error(`${method} ${path} threw exception: ` + e.stack);
 
-                            res.status(500).send(e.message);
+                            res.setHeader("Content-Type", "text/plain")
+                                .status(500)
+                                .send(e.message);
                         });
                 }
                 else {
@@ -180,7 +186,9 @@ function route(method, path, middleware, routeHandler, resultHandler, transactio
         catch (e) {
             log.error(`${method} ${path} threw exception: ` + e.stack);
 
-            res.status(500).send(e.message);
+            res.setHeader("Content-Type", "text/plain")
+                .status(500)
+                .send(e.message);
         }
     });
 }
@@ -285,6 +293,7 @@ function register(app) {
     apiRoute(POST, '/api/special-notes/search-note', specialNotesRoute.createSearchNote);
     apiRoute(POST, '/api/special-notes/save-search-note', specialNotesRoute.saveSearchNote);
 
+    // :filename is not used by trilium, but instead used for "save as" to assign a human readable filename
     route(GET, '/api/images/:noteId/:filename', [auth.checkApiAuthOrElectron], imageRoute.returnImage);
     route(POST, '/api/images', [auth.checkApiAuthOrElectron, uploadMiddleware, csrfMiddleware], imageRoute.uploadImage, apiResultHandler);
     route(PUT, '/api/images/:noteId', [auth.checkApiAuthOrElectron, uploadMiddleware, csrfMiddleware], imageRoute.updateImage, apiResultHandler);
@@ -358,6 +367,7 @@ function register(app) {
     route(POST, '/api/login/sync', [], loginApiRoute.loginSync, apiResultHandler);
     // this is for entering protected mode so user has to be already logged-in (that's the reason we don't require username)
     apiRoute(POST, '/api/login/protected', loginApiRoute.loginToProtectedSession);
+    apiRoute(POST, '/api/login/protected/touch', loginApiRoute.touchProtectedSession);
     apiRoute(POST, '/api/logout/protected', loginApiRoute.logoutFromProtectedSession);
 
     route(POST, '/api/login/token', [], loginApiRoute.token, apiResultHandler);

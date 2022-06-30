@@ -210,7 +210,7 @@ function BackendScriptApi(currentNote, apiParams) {
      * @property {string} parentNoteId - MANDATORY
      * @property {string} title - MANDATORY
      * @property {string|buffer} content - MANDATORY
-     * @property {string} type - text, code, file, image, search, book, relation-map - MANDATORY
+     * @property {string} type - text, code, file, image, search, book, relation-map, canvas - MANDATORY
      * @property {string} mime - value is derived from default mimes for type
      * @property {boolean} isProtected - default is false
      * @property {boolean} isExpanded - default is false
@@ -426,6 +426,15 @@ function BackendScriptApi(currentNote, apiParams) {
      * @return {{syncVersion, appVersion, buildRevision, dbVersion, dataDirectory, buildDate}|*} - object representing basic info about running Trilium version
      */
     this.getAppInfo = () => appInfo
+
+    /**
+     * This object contains "at your risk" and "no BC guarantees" objects for advanced use cases.
+     *
+     * @type {{becca: Becca}}
+     */
+    this.__private = {
+        becca
+    }
 }
 
 module.exports = BackendScriptApi;

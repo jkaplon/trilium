@@ -280,7 +280,7 @@ function isHtmlEmpty(html) {
 
 async function clearBrowserCache() {
     if (isElectron()) {
-        const win = utils.dynamicRequire('@electron/remote').getCurrentWindow();
+        const win = dynamicRequire('@electron/remote').getCurrentWindow();
         await win.webContents.session.clearCache();
     }
 }
@@ -290,10 +290,6 @@ function copySelectionToClipboard() {
     if (navigator.clipboard) {
         navigator.clipboard.writeText(text);
     }
-}
-
-function isCKEditorInitialized() {
-    return !!(window && window.cutToNote);
 }
 
 function dynamicRequire(moduleName) {
@@ -359,6 +355,16 @@ function isValidAttributeName(name) {
     return ATTR_NAME_MATCHER.test(name);
 }
 
+function sleep(time_ms) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, time_ms);
+    });
+}
+
+function escapeRegExp(str) {
+    return str.replace(/([.*+?^=!:${}()|\[\]\/\\])/g, "\\$1");
+}
+
 export default {
     reloadFrontendApp,
     parseDate,
@@ -395,12 +401,13 @@ export default {
     clearBrowserCache,
     normalizeShortcut,
     copySelectionToClipboard,
-    isCKEditorInitialized,
     dynamicRequire,
     timeLimit,
     initHelpDropdown,
     initHelpButtons,
     openHelp,
     filterAttributeName,
-    isValidAttributeName
+    isValidAttributeName,
+    sleep,
+    escapeRegExp
 };

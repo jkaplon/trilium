@@ -39,34 +39,10 @@ export default class Entrypoints extends Component {
         }
     }
 
-    findInTextCommand() {
-        if (!utils.isElectron()) {
-            return;
-        }
-
-        const remote = utils.dynamicRequire('@electron/remote');
-        const {FindInPage} = utils.dynamicRequire('electron-find');
-        const findInPage = new FindInPage(remote.getCurrentWebContents(), {
-            offsetTop: 10,
-            offsetRight: 10,
-            boxBgColor: 'var(--main-background-color)',
-            boxShadowColor: '#000',
-            inputColor: 'var(--input-text-color)',
-            inputBgColor: 'var(--input-background-color)',
-            inputFocusColor: '#555',
-            textColor: 'var(--main-text-color)',
-            textHoverBgColor: '#555',
-            caseSelectedColor: 'var(--main-border-color)'
-        });
-
-        findInPage.openFindWindow();
-    }
-
     async createNoteIntoInboxCommand() {
         const inboxNote = await dateNoteService.getInboxNote();
 
         const {note} = await server.post(`notes/${inboxNote.noteId}/children?target=into`, {
-            title: 'new note',
             content: '',
             type: 'text',
             isProtected: inboxNote.isProtected && protectedSessionHolder.isProtectedSessionAvailable()

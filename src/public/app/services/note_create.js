@@ -24,11 +24,9 @@ async function createNote(parentNotePath, options = {}) {
         options.saveSelection = false;
     }
 
-    if (options.saveSelection && utils.isCKEditorInitialized()) {
-        [options.title, options.content] = parseSelectedHtml(window.cutToNote.getSelectedHtml());
+    if (options.saveSelection) {
+        [options.title, options.content] = parseSelectedHtml(options.textEditor.getSelectedHtml());
     }
-
-    const newNoteName = options.title || "new note";
 
     const parentNoteId = treeService.getNoteIdFromNotePath(parentNotePath);
 
@@ -41,16 +39,16 @@ async function createNote(parentNotePath, options = {}) {
     }
 
     const {note, branch} = await server.post(`notes/${parentNoteId}/children?target=${options.target}&targetBranchId=${options.targetBranchId || ""}`, {
-        title: newNoteName,
+        title: options.title,
         content: options.content || "",
         isProtected: options.isProtected,
         type: options.type,
         mime: options.mime
     });
 
-    if (options.saveSelection && utils.isCKEditorInitialized()) {
+    if (options.saveSelection) {
         // we remove the selection only after it was saved to server to make sure we don't lose anything
-        window.cutToNote.removeSelection();
+        options.textEditor.removeSelection();
     }
 
     await ws.waitForMaxKnownEntityChangeId();

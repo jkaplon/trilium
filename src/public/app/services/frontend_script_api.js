@@ -102,6 +102,26 @@ function FrontendScriptApi(startNote, currentNote, originEntity = null, $contain
     };
 
     /**
+     * Open a note in a new split.
+     *
+     * @param {string} notePath (or noteId)
+     * @param {boolean} activate - set to true to activate the new split, false to stay on the current split
+     * @return {Promise<void>}
+     */
+    this.openSplitWithNote = async (notePath, activate) => {
+        await ws.waitForMaxKnownEntityChangeId();
+
+        const subContexts = appContext.tabManager.getActiveContext().getSubContexts();
+        const {ntxId} = subContexts[subContexts.length - 1];
+
+        appContext.triggerCommand("openNewNoteSplit", {ntxId, notePath});
+
+        if (activate) {
+            appContext.triggerEvent('focusAndSelectTitle');
+        }
+    };
+
+    /**
      * @typedef {Object} ToolbarButtonOptions
      * @property {string} title
      * @property {string} [icon] - name of the boxicon to be used (e.g. "time" for "bx-time" icon)
@@ -300,6 +320,24 @@ function FrontendScriptApi(startNote, currentNote, originEntity = null, $contain
     this.showError = toastService.showError;
 
     /**
+     * Trigger command.
+     *
+     * @method
+     * @param {string} name
+     * @param {object} data
+     */
+    this.triggerCommand = (name, data) => appContext.triggerCommand(name, data);
+
+    /**
+     * Trigger event.
+     *
+     * @method
+     * @param {string} name
+     * @param {object} data
+     */
+    this.triggerEvent = (name, data) => appContext.triggerEvent(name, data);
+
+    /**
      * @method
      * @deprecated - this is now no-op since all the changes should be gracefully handled per widget
      */
@@ -321,30 +359,104 @@ function FrontendScriptApi(startNote, currentNote, originEntity = null, $contain
     /**
      * Adds given text to the editor cursor
      *
+     * @deprecated use addTextToActiveContextEditor() instead
      * @param {string} text - this must be clear text, HTML is not supported.
      * @method
      */
-    this.addTextToActiveTabEditor = text => appContext.triggerCommand('addTextToActiveEditor', {text});
+    this.addTextToActiveTabEditor = text => {
+        console.warn("api.addTextToActiveTabEditor() is deprecated, use addTextToActiveContextEditor() instead.");
+
+        return appContext.triggerCommand('addTextToActiveEditor', {text});
+    };
+
+    /**
+     * Adds given text to the editor cursor
+     *
+     * @param {string} text - this must be clear text, HTML is not supported.
+     * @method
+     */
+    this.addTextToActiveContextEditor = text => appContext.triggerCommand('addTextToActiveEditor', {text});
+
+    /**
+     * @method
+     * @deprecated use getActiveContextNote() instead
+     * @returns {NoteShort} active note (loaded into right pane)
+     */
+    this.getActiveTabNote = () => {
+        console.warn("api.getActiveTabNote() is deprecated, use getActiveContextNote() instead.");
+
+        return appContext.tabManager.getActiveContextNote();
+    };
 
     /**
      * @method
      * @returns {NoteShort} active note (loaded into right pane)
      */
-    this.getActiveTabNote = () => appContext.tabManager.getActiveContextNote();
+    this.getActiveContextNote = () => appContext.tabManager.getActiveContextNote();
+
+    /**
+     * See https://ckeditor.com/docs/ckeditor5/latest/api/module_core_editor_editor-Editor.html for a documentation on the returned instance.
+     *
+     * @deprecated use getActiveContextTextEditor()
+     * @method
+     * @param [callback] - callback receiving "textEditor" instance
+     */
+    this.getActiveTabTextEditor = callback => {
+        console.warn("api.getActiveTabTextEditor() is deprecated, use getActiveContextTextEditor() instead.");
+
+        return appContext.tabManager.getActiveContext()?.getTextEditor(callback);
+    };
 
     /**
      * See https://ckeditor.com/docs/ckeditor5/latest/api/module_core_editor_editor-Editor.html for a documentation on the returned instance.
      *
      * @method
-     * @param callback - method receiving "textEditor" instance
+     * @returns {Promise<CKEditor>} instance of CKEditor
      */
-    this.getActiveTabTextEditor = callback => appContext.triggerCommand('executeInActiveEditor', {callback});
+    this.getActiveContextTextEditor = () => appContext.tabManager.getActiveContext()?.getTextEditor();
+
+    /**
+     * See https://codemirror.net/doc/manual.html#api
+     *
+     * @method
+     * @returns {Promise<CodeMirror>} instance of CodeMirror
+     */
+    this.getActiveContextCodeEditor = () => appContext.tabManager.getActiveContext()?.getCodeEditor();
+
+    /**
+     * Get access to the widget handling note detail. Methods like `getWidgetType()` and `getTypeWidget()` to get to the
+     * implementation of actual widget type.
+     *
+     * @method
+     * @returns {Promise<NoteDetailWidget>}
+     */
+    this.getActiveNoteDetailWidget = () => new Promise(resolve => appContext.triggerCommand('executeInActiveNoteDetailWidget', {callback: resolve}));
+
+    /**
+     * @method
+     * @deprecated use getActiveContextNotePath() instead
+     * @returns {Promise<string|null>} returns note path of active note or null if there isn't active note
+     */
+    this.getActiveTabNotePath = () => {
+        console.warn("api.getActiveTabNotePath() is deprecated, use getActiveContextNotePath() instead.");
+
+        return appContext.tabManager.getActiveContextNotePath();
+    };
 
     /**
      * @method
      * @returns {Promise<string|null>} returns note path of active note or null if there isn't active note
      */
-    this.getActiveTabNotePath = () => appContext.tabManager.getActiveContextNotePath();
+    this.getActiveContextNotePath = () => appContext.tabManager.getActiveContextNotePath();
+
+    /**
+     * Returns component which owns given DOM element (the nearest parent component in DOM tree)
+     *
+     * @method
+     * @param {Element} el - DOM element
+     * @returns {Component}
+     */
+    this.getComponentByEl = el => appContext.getComponentByEl(el);
 
     /**
      * @method

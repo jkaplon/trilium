@@ -219,11 +219,23 @@ const ATTR_HELP = {
         "shareDisallowRobotIndexing": `will forbid robot indexing of this note via <code>X-Robots-Tag: noindex</code> header`,
         "displayRelations": "comma delimited names of relations which should be displayed. All other ones will be hidden.",
         "hideRelations": "comma delimited names of relations which should be hidden. All other ones will be displayed.",
+        "titleTemplate": `default title of notes created as children of this note. The value is evaluated as JavaScript string 
+                        and thus can be enriched with dynamic content via the injected <code>now</code> and <code>parentNote</code> variables. Examples:
+                        
+                        <ul>
+                            <li><code>\${parentNote.getLabelValue('authorName')}'s literary works</code></li>
+                            <li><code>Log for \${now.format('YYYY-MM-DD HH:mm:ss')}</code></li>
+                        </ul>
+                        
+                        See <a href="https://github.com/zadam/trilium/wiki/Default-note-title">wiki with details</a>, API docs for <a href="https://zadam.github.io/trilium/backend_api/Note.html">parentNote</a> and <a href="https://day.js.org/docs/en/display/format">now</a> for details.`
     },
     "relation": {
         "runOnNoteCreation": "executes when note is created on backend",
         "runOnNoteTitleChange": "executes when note title is changed (includes note creation as well)",
         "runOnNoteChange": "executes when note is changed (includes note creation as well)",
+        "runOnNoteDeletion": "executes when note is being deleted",
+        "runOnBranchCreation": "executes when a branch is created. Branch is a link between parent note and child note and is created e.g. when cloning or moving note.",
+        "runOnBranchDeletion": "executes when a branch is deleted. Branch is a link between parent note and child note and is deleted e.g. when moving note (old branch/link is deleted).",
         "runOnChildNoteCreation": "executes when new note is created under this note",
         "runOnAttributeCreation": "executes when new attribute is created under this note",
         "runOnAttributeChange": "executes when attribute is changed under this note",

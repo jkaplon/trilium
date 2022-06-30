@@ -56,41 +56,66 @@ class ConsistencyChecks {
             childToParents[childNoteId].push(parentNoteId);
         }
 
+        /** @returns {boolean} true if cycle was found and we should try again */
         const checkTreeCycle = (noteId, path) => {
             if (noteId === 'root') {
-                return;
-            }
-
-            if (!childToParents[noteId] || childToParents[noteId].length === 0) {
-                logError(`No parents found for note ${noteId}`);
-
-                this.unrecoveredConsistencyErrors = true;
-                return;
+                return false;
             }
 
             for (const parentNoteId of childToParents[noteId]) {
                 if (path.includes(parentNoteId)) {
-                    logError(`Tree cycle detected at parent-child relationship: ${parentNoteId} - ${noteId}, whole path: ${path}`);
+                    if (this.autoFix) {
+                        const branch = becca.getBranchFromChildAndParent(noteId, parentNoteId);
+                        branch.markAsDeleted('cycle-autofix');
+                        logFix(`Branch '${branch.branchId}' between child '${noteId}' and parent '${parentNoteId}' has been deleted since it was causing a tree cycle.`);
 
-                    this.unrecoveredConsistencyErrors = true;
+                        return true;
+                    }
+                    else {
+                        logError(`Tree cycle detected at parent-child relationship: ${parentNoteId} - ${noteId}, whole path: ${path}`);
+
+                        this.unrecoveredConsistencyErrors = true;
+                    }
                 } else {
                     const newPath = path.slice();
                     newPath.push(noteId);
 
-                    checkTreeCycle(parentNoteId, newPath);
+                    const retryNeeded = checkTreeCycle(parentNoteId, newPath);
+
+                    if (retryNeeded) {
+                        return true;
+                    }
                 }
             }
+
+            return false;
         };
 
         const noteIds = Object.keys(childToParents);
 
         for (const noteId of noteIds) {
-            checkTreeCycle(noteId, []);
+            const retryNeeded = checkTreeCycle(noteId, []);
+
+            if (retryNeeded) {
+                return true;
+            }
         }
 
-        if (childToParents['root'].length !== 1 || childToParents['root'][0] !== 'none') {
-            logError('Incorrect root parent: ' + JSON.stringify(childToParents['root']));
-            this.unrecoveredConsistencyErrors = true;
+        return false;
+    }
+
+    checkAndRepairTreeCycles() {
+        let treeFixed = false;
+
+        while (this.checkTreeCycles()) {
+            // fixing cycle means deleting branches, we might need to create a new branch to recover the note
+            this.findExistencyIssues();
+
+            treeFixed = true;
+        }
+
+        if (treeFixed) {
+            this.reloadNeeded = true;
         }
     }
 
@@ -342,26 +367,30 @@ class ConsistencyChecks {
                 }
             });
 
-        this.findAndFixIssues(`
-                    SELECT notes.noteId, notes.type, notes.mime
-                    FROM notes
-                      JOIN note_contents USING (noteId)
-                    WHERE isDeleted = 0
-                      AND isProtected = 0
-                      AND content IS NULL`,
-            ({noteId, type, mime}) => {
-                if (this.autoFix) {
-                    const note = becca.getNote(noteId);
-                    const blankContent = getBlankContent(false, type, mime);
-                    note.setContent(blankContent);
+        if (sqlInit.getDbSize() < 500000) {
+            // querying for "content IS NULL" is expensive since content is not indexed. See e.g. https://github.com/zadam/trilium/issues/2887
 
-                    this.reloadNeeded = true;
+            this.findAndFixIssues(`
+                        SELECT notes.noteId, notes.type, notes.mime
+                        FROM notes
+                                 JOIN note_contents USING (noteId)
+                        WHERE isDeleted = 0
+                          AND isProtected = 0
+                          AND content IS NULL`,
+                ({noteId, type, mime}) => {
+                    if (this.autoFix) {
+                        const note = becca.getNote(noteId);
+                        const blankContent = getBlankContent(false, type, mime);
+                        note.setContent(blankContent);
 
-                    logFix(`Note ${noteId} content was set to "${blankContent}" since it was null even though it is not deleted`);
-                } else {
-                    logError(`Note ${noteId} content is null even though it is not deleted`);
-                }
-            });
+                        this.reloadNeeded = true;
+
+                        logFix(`Note ${noteId} content was set to "${blankContent}" since it was null even though it is not deleted`);
+                    } else {
+                        logError(`Note ${noteId} content is null even though it is not deleted`);
+                    }
+                });
+        }
 
         this.findAndFixIssues(`
                     SELECT note_revisions.noteRevisionId
@@ -646,7 +675,7 @@ class ConsistencyChecks {
         if (!this.unrecoveredConsistencyErrors) {
             // we run this only if basic checks passed since this assumes basic data consistency
 
-            this.checkTreeCycles();
+            this.checkAndRepairTreeCycles();
         }
 
         if (this.reloadNeeded) {

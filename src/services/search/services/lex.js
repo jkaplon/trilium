@@ -9,7 +9,7 @@ function lex(str) {
     let currentWord = '';
 
     function isSymbolAnOperator(chr) {
-        return ['=', '*', '>', '<', '!', "-", "+"].includes(chr);
+        return ['=', '*', '>', '<', '!', "-", "+", '%'].includes(chr);
     }
 
     function isPreviousSymbolAnOperator() {
@@ -83,7 +83,7 @@ function lex(str) {
             continue;
         }
         else if (!quotes) {
-            if (!fulltextEnded && currentWord === 'note' && chr === '.') {
+            if (!fulltextEnded && currentWord === 'note' && chr === '.' && i + 1 < str.length) {
                 fulltextEnded = true;
             }
 

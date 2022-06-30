@@ -17,7 +17,7 @@ const becca = require('../becca/becca');
 const Branch = require('../becca/entities/branch');
 const Note = require('../becca/entities/note');
 const Attribute = require('../becca/entities/attribute');
-const TaskContext = require("./task_context.js");
+const dayjs = require("dayjs");
 
 function getNewNotePosition(parentNoteId) {
     const note = becca.notes[parentNoteId];
@@ -53,7 +53,7 @@ function deriveMime(type, mime) {
         mime = 'text/html';
     } else if (type === 'code' || type === 'mermaid') {
         mime = 'text/plain';
-    } else if (['relation-map', 'search'].includes(type)) {
+    } else if (['relation-map', 'search', 'canvas'].includes(type)) {
         mime = 'application/json';
     } else if (['render', 'book'].includes(type)) {
         mime = '';
@@ -79,12 +79,34 @@ function copyChildAttributes(parentNote, childNote) {
     }
 }
 
+function getNewNoteTitle(parentNote) {
+    let title = "new note";
+
+    const titleTemplate = parentNote.getLabelValue('titleTemplate');
+
+    if (titleTemplate !== null) {
+        try {
+            const now = dayjs(cls.getLocalNowDateTime() || new Date());
+
+            // "officially" injected values:
+            // - now
+            // - parentNote
+
+            title = eval('`' + titleTemplate + '`');
+        } catch (e) {
+            log.error(`Title template of note '${parentNote.noteId}' failed with: ${e.message}`);
+        }
+    }
+
+    return title;
+}
+
 /**
  * Following object properties are mandatory:
  * - {string} parentNoteId
  * - {string} title
  * - {*} content
- * - {string} type - text, code, file, image, search, book, relation-map, render
+ * - {string} type - text, code, file, image, search, book, relation-map, canvas, render
  *
  * Following are optional (have defaults)
  * - {string} mime - value is derived from default mimes for type
@@ -104,8 +126,7 @@ function createNewNote(params) {
     }
 
     if (params.title === null || params.title === undefined) {
-        // empty title is allowed since it's possible to create such in the UI
-        throw new Error(`Note title must be set`);
+        params.title = getNewNoteTitle(parentNote);
     }
 
     if (params.content === null || params.content === undefined) {
@@ -302,6 +323,10 @@ function replaceUrl(content, url, imageNote) {
 }
 
 function downloadImages(noteId, content) {
+    if (!optionService.getOptionBool("downloadImagesAutomatically")) {
+        return content;
+    }
+
     const imageRe = /<img[^>]*?\ssrc=['"]([^'">]+)['"]/ig;
     let imageMatch;
 
@@ -466,7 +491,7 @@ function saveLinks(note, content) {
     return content;
 }
 
-function saveNoteRevision(note) {
+function saveNoteRevisionIfNeeded(note) {
     // files and images are versioned separately
     if (note.type === 'file' || note.type === 'image' || note.hasLabel('disableVersioning')) {
         return;
@@ -483,7 +508,7 @@ function saveNoteRevision(note) {
     const msSinceDateCreated = now.getTime() - dateUtils.parseDateTime(note.utcDateCreated).getTime();
 
     if (!existingNoteRevisionId && msSinceDateCreated >= noteRevisionSnapshotTimeInterval * 1000) {
-        noteRevisionService.createNoteRevision(note);
+        note.saveNoteRevision();
     }
 }
 
@@ -494,7 +519,7 @@ function updateNote(noteId, noteUpdates) {
         throw new Error(`Note '${noteId}' is not available for change!`);
     }
 
-    saveNoteRevision(note);
+    saveNoteRevisionIfNeeded(note);
 
     // if protected status changed, then we need to encrypt/decrypt the content anyway
     if (['file', 'image'].includes(note.type) && note.isProtected !== noteUpdates.isProtected) {
@@ -885,6 +910,6 @@ module.exports = {
     triggerNoteTitleChanged,
     eraseDeletedNotesNow,
     eraseNotesWithDeleteId,
-    saveNoteRevision,
+    saveNoteRevisionIfNeeded,
     downloadImages
 };

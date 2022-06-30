@@ -21,7 +21,8 @@ function updateFile(req) {
         return [404, `Note ${noteId} doesn't exist.`];
     }
 
-    noteRevisionService.createNoteRevision(note);
+    note.saveNoteRevision();
+    noteRevisionService.protectNoteRevisions(note);
 
     note.mime = file.mimetype.toLowerCase();
     note.save();
@@ -47,7 +48,9 @@ function downloadNoteFile(noteId, res, contentDisposition = true) {
     const note = becca.getNote(noteId);
 
     if (!note) {
-        return res.status(404).send(`Note ${noteId} doesn't exist.`);
+        return res.setHeader("Content-Type", "text/plain")
+            .status(404)
+            .send(`Note ${noteId} doesn't exist.`);
     }
 
     if (note.isProtected && !protectedSessionService.isProtectedSessionAvailable()) {

@@ -8,7 +8,7 @@ const dateUtils = require('../../services/date_utils');
 const entityChangesService = require('../../services/entity_changes');
 const AbstractEntity = require("./abstract_entity");
 const NoteRevision = require("./note_revision");
-const TaskContext = require("../../services/task_context.js");
+const TaskContext = require("../../services/task_context");
 
 const LABEL = 'label';
 const RELATION = 'relation';
@@ -1133,6 +1133,10 @@ class Note extends AbstractEntity {
      * @param {TaskContext} [taskContext]
      */
     deleteNote(deleteId, taskContext) {
+        if (this.isDeleted) {
+            return;
+        }
+
         if (!deleteId) {
             deleteId = utils.randomString(10);
         }
@@ -1140,6 +1144,11 @@ class Note extends AbstractEntity {
         if (!taskContext) {
             taskContext = new TaskContext('no-progress-reporting');
         }
+
+        // needs to be run before branches and attributes are deleted and thus attached relations disappear
+        const handlers = require("../../services/handlers");
+        handlers.runAttachedRelations(this, 'runOnNoteDeletion', this);
+        taskContext.noteDeletionHandlerTriggered = true;
 
         for (const branch of this.getParentBranches()) {
             branch.deleteBranch(deleteId, taskContext);
@@ -1162,6 +1171,41 @@ class Note extends AbstractEntity {
 
     get isDeleted() {
         return !(this.noteId in this.becca.notes);
+    }
+
+    /**
+     * @return {NoteRevision|null}
+     */
+    saveNoteRevision() {
+        const content = this.getContent();
+
+        if (!content || (Buffer.isBuffer(content) && content.byteLength === 0)) {
+            return null;
+        }
+
+        const contentMetadata = this.getContentMetadata();
+
+        const noteRevision = new NoteRevision({
+            noteId: this.noteId,
+            // title and text should be decrypted now
+            title: this.title,
+            type: this.type,
+            mime: this.mime,
+            isProtected: false, // will be fixed in the protectNoteRevisions() call
+            utcDateLastEdited: this.utcDateModified > contentMetadata.utcDateModified
+                ? this.utcDateModified
+                : contentMetadata.utcDateModified,
+            utcDateCreated: dateUtils.utcNowDateTime(),
+            utcDateModified: dateUtils.utcNowDateTime(),
+            dateLastEdited: this.dateModified > contentMetadata.dateModified
+                ? this.dateModified
+                : contentMetadata.dateModified,
+            dateCreated: dateUtils.localNowDateTime()
+        }).save();
+
+        noteRevision.setContent(content);
+
+        return noteRevision;
     }
 
     beforeSaving() {

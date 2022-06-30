@@ -64,6 +64,20 @@ const MERMAID = {
     js: [ "libraries/mermaid.min.js" ]
 }
 
+const EXCALIDRAW = {
+    js: [
+        "node_modules/react/umd/react.production.min.js",
+        "node_modules/react-dom/umd/react-dom.production.min.js",
+        "node_modules/@excalidraw/excalidraw/dist/excalidraw.production.min.js",
+    ]
+};
+
+const MARKJS = {
+    js: [
+        "libraries/jquery.mark.es6.min.js"
+    ]
+};
+
 async function requireLibrary(library) {
     if (library.css) {
         library.css.map(cssUrl => requireCss(cssUrl));
@@ -114,5 +128,7 @@ export default {
     KATEX,
     WHEEL_ZOOM,
     FORCE_GRAPH,
-    MERMAID
+    MERMAID,
+    EXCALIDRAW,
+    MARKJS
 }
