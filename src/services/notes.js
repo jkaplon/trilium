@@ -18,6 +18,7 @@ const Branch = require('../becca/entities/branch');
 const Note = require('../becca/entities/note');
 const Attribute = require('../becca/entities/attribute');
 const dayjs = require("dayjs");
+const htmlSanitizer = require("./html_sanitizer.js");
 
 function getNewNotePosition(parentNoteId) {
     const note = becca.notes[parentNoteId];
@@ -55,7 +56,7 @@ function deriveMime(type, mime) {
         mime = 'text/plain';
     } else if (['relation-map', 'search', 'canvas'].includes(type)) {
         mime = 'application/json';
-    } else if (['render', 'book'].includes(type)) {
+    } else if (['render', 'book', 'web-view'].includes(type)) {
         mime = '';
     } else {
         mime = 'application/octet-stream';
@@ -97,6 +98,11 @@ function getNewNoteTitle(parentNote) {
             log.error(`Title template of note '${parentNote.noteId}' failed with: ${e.message}`);
         }
     }
+
+    // this isn't in theory a good place to sanitize title, but this will catch a lot of XSS attempts
+    // title is supposed to contain text only (not HTML) and be printed text only, but given the number of usages
+    // it's difficult to guarantee correct handling in all cases
+    title = htmlSanitizer.sanitize(title);
 
     return title;
 }
@@ -156,6 +162,17 @@ function createNewNote(params) {
         scanForLinks(note);
 
         copyChildAttributes(parentNote, note);
+
+        if (params.templateNoteId) {
+            if (!becca.getNote(params.templateNoteId)) {
+                throw new Error(`Template note '${params.templateNoteId}' does not exist.`);
+            }
+
+            // could be already copied from the parent via `child:`, no need to have 2
+            if (!note.hasOwnedRelation('template', params.templateNoteId)) {
+                note.addRelation('template', params.templateNoteId);
+            }
+        }
 
         triggerNoteTitleChanged(note);
         triggerChildNoteCreated(note, parentNote);
@@ -341,8 +358,10 @@ function downloadImages(noteId, content) {
             const imageService = require('../services/image');
             const {note} = imageService.saveImage(noteId, imageBuffer, "inline image", true, true);
 
+            const sanitizedTitle = note.title.replace(/[^a-z0-9-.]/gi, "");
+
             content = content.substr(0, imageMatch.index)
-                + `<img src="api/images/${note.noteId}/${note.title}"`
+                + `<img src="api/images/${note.noteId}/${sanitizedTitle}"`
                 + content.substr(imageMatch.index + imageMatch[0].length);
         }
         else if (!url.includes('api/images/')
@@ -512,7 +531,7 @@ function saveNoteRevisionIfNeeded(note) {
     }
 }
 
-function updateNote(noteId, noteUpdates) {
+function updateNoteContent(noteId, content) {
     const note = becca.getNote(noteId);
 
     if (!note.isContentAvailable()) {
@@ -521,33 +540,9 @@ function updateNote(noteId, noteUpdates) {
 
     saveNoteRevisionIfNeeded(note);
 
-    // if protected status changed, then we need to encrypt/decrypt the content anyway
-    if (['file', 'image'].includes(note.type) && note.isProtected !== noteUpdates.isProtected) {
-        noteUpdates.content = note.getContent();
-    }
+    content = saveLinks(note, content);
 
-    const noteTitleChanged = note.title !== noteUpdates.title;
-
-    note.title = noteUpdates.title;
-    note.isProtected = noteUpdates.isProtected;
-    note.save();
-
-    if (noteUpdates.content !== undefined && noteUpdates.content !== null) {
-        noteUpdates.content = saveLinks(note, noteUpdates.content);
-
-        note.setContent(noteUpdates.content);
-    }
-
-    if (noteTitleChanged) {
-        triggerNoteTitleChanged(note);
-    }
-
-    noteRevisionService.protectNoteRevisions(note);
-
-    return {
-        dateModified: note.dateModified,
-        utcDateModified: note.utcDateModified
-    };
+    note.setContent(content);
 }
 
 /**
@@ -900,7 +895,7 @@ sqlInit.dbReady.then(() => {
 module.exports = {
     createNewNote,
     createNewNoteWithTarget,
-    updateNote,
+    updateNoteContent,
     undeleteNote,
     protectNoteRecursively,
     scanForLinks,

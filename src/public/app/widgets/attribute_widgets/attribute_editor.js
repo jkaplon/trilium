@@ -217,11 +217,11 @@ export default class AttributeEditorWidget extends NoteContextAwareWidget {
             y: e.pageY,
             orientation: 'left',
             items: [
-                {title: `Add new label <kbd data-command="addNewLabel"></kbd>`, command: "addNewLabel", uiIcon: "hash"},
-                {title: `Add new relation <kbd data-command="addNewRelation"></kbd>`, command: "addNewRelation", uiIcon: "transfer"},
+                {title: `Add new label <kbd data-command="addNewLabel"></kbd>`, command: "addNewLabel", uiIcon: "bx bx-hash"},
+                {title: `Add new relation <kbd data-command="addNewRelation"></kbd>`, command: "addNewRelation", uiIcon: "bx bx-transfer"},
                 {title: "----"},
-                {title: "Add new label definition", command: "addNewLabelDefinition", uiIcon: "empty"},
-                {title: "Add new relation definition", command: "addNewRelationDefinition", uiIcon: "empty"},
+                {title: "Add new label definition", command: "addNewLabelDefinition", uiIcon: "bx bx-empty"},
+                {title: "Add new relation definition", command: "addNewRelationDefinition", uiIcon: "bx bx-empty"},
             ],
             selectMenuItemHandler: ({command}) => this.handleAddNewAttributeCommand(command)
         });
@@ -468,6 +468,8 @@ export default class AttributeEditorWidget extends NoteContextAwareWidget {
 
     async renderOwnedAttributes(ownedAttributes, saved) {
         ownedAttributes = ownedAttributes.filter(oa => !oa.isDeleted);
+        // attrs are not resorted if position changes after initial load
+        ownedAttributes.sort((a, b) => a.position < b.position ? -1 : 1);
 
         let htmlAttrs = (await attributeRenderer.renderAttributes(ownedAttributes, true)).html();
 
@@ -485,7 +487,7 @@ export default class AttributeEditorWidget extends NoteContextAwareWidget {
     }
 
     async createNoteForReferenceLink(title) {
-        const {note} = await noteCreateService.createNote(this.notePath, {
+        const {note} = await noteCreateService.createNoteWithTypePrompt(this.notePath, {
             activate: false,
             title: title
         });

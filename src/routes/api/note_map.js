@@ -10,7 +10,11 @@ function buildDescendantCountMap() {
         if (!(noteId in noteIdToCountMap)) {
             const note = becca.getNote(noteId);
 
-            noteIdToCountMap[noteId] = note.children.length;
+            const hiddenImageNoteIds = note.getRelations('imageLink').map(rel => rel.value);
+            const childNoteIds = note.children.map(child => child.noteId);
+            const nonHiddenNoteIds = childNoteIds.filter(childNoteId => !hiddenImageNoteIds.includes(childNoteId));
+
+            noteIdToCountMap[noteId] = nonHiddenNoteIds.length;
 
             for (const child of note.children) {
                 noteIdToCountMap[noteId] += getCount(child.noteId);
@@ -138,7 +142,6 @@ function getTreeMap(req) {
     // if the map root itself has ignore (journal typically) then there wouldn't be anything to display so
     // we'll just ignore it
     const ignoreExcludeFromNoteMap = mapRootNote.hasLabel('excludeFromNoteMap');
-    const noteIds = new Set();
 
     const notes = mapRootNote.getSubtreeNotes(false)
         .filter(note => ignoreExcludeFromNoteMap || !note.hasLabel('excludeFromNoteMap'))
@@ -155,13 +158,14 @@ function getTreeMap(req) {
 
             return !note.getParentNotes().find(parentNote => parentNote.noteId === imageLinkRelation.noteId);
         })
-        .concat(...mapRootNote.getParentNotes())
+        .concat(...mapRootNote.getParentNotes().filter(note => note.noteId !== 'none'))
         .map(note => [
             note.noteId,
             note.getTitleOrProtected(),
             note.type
         ]);
 
+    const noteIds = new Set();
     notes.forEach(([noteId]) => noteIds.add(noteId));
 
     const links = [];

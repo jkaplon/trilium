@@ -88,6 +88,10 @@ function findResultsWithExpression(expression, searchContext) {
                 throw new Error(`Can't find note path for note ${JSON.stringify(note.getPojo())}`);
             }
 
+            if (notePathArray.includes("hidden")) {
+                return null;
+            }
+
             return new SearchResult(notePathArray);
         })
         .filter(note => !!note);
@@ -169,6 +173,17 @@ function findResultsWithQuery(query, searchContext) {
     return findResultsWithExpression(expression, searchContext);
 }
 
+/**
+ * @param {string} query
+ * @param {SearchContext} searchContext
+ * @return {Note|null}
+ */
+function findFirstNoteWithQuery(query, searchContext) {
+    const searchResults = findResultsWithQuery(query, searchContext);
+
+    return searchResults.length > 0 ? becca.notes[searchResults[0].noteId] : null;
+}
+
 function searchNotesForAutocomplete(query) {
     const searchContext = new SearchContext({
         fastSearch: true,
@@ -176,8 +191,7 @@ function searchNotesForAutocomplete(query) {
         fuzzyAttributeSearch: true
     });
 
-    const allSearchResults = findResultsWithQuery(query, searchContext)
-        .filter(res => !res.notePathArray.includes("hidden"));
+    const allSearchResults = findResultsWithQuery(query, searchContext);
 
     const trimmed = allSearchResults.slice(0, 200);
 
@@ -276,5 +290,6 @@ function formatAttribute(attr) {
 module.exports = {
     searchNotesForAutocomplete,
     findResultsWithQuery,
+    findFirstNoteWithQuery,
     searchNotes
 };

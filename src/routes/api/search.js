@@ -5,20 +5,18 @@ const SearchContext = require('../../services/search/search_context');
 const log = require('../../services/log');
 const scriptService = require('../../services/script');
 const searchService = require('../../services/search/services/search');
-const noteRevisionService = require("../../services/note_revisions");
-const branchService = require("../../services/branches");
-const cloningService = require("../../services/cloning");
+const bulkActionService = require("../../services/bulk_actions");
 const {formatAttrForSearch} = require("../../services/attribute_formatter");
-const utils = require("../../services/utils.js");
 
 function searchFromNoteInt(note) {
-    let searchResultNoteIds;
+    let searchResultNoteIds, highlightedTokens;
 
     const searchScript = note.getRelationValue('searchScript');
     const searchString = note.getLabelValue('searchString');
 
     if (searchScript) {
         searchResultNoteIds = searchFromRelation(note, 'searchScript');
+        highlightedTokens = [];
     } else {
         const searchContext = new SearchContext({
             fastSearch: note.hasLabel('fastSearch'),
@@ -34,14 +32,19 @@ function searchFromNoteInt(note) {
 
         searchResultNoteIds = searchService.findResultsWithQuery(searchString, searchContext)
             .map(sr => sr.noteId);
+
+        highlightedTokens = searchContext.highlightedTokens;
     }
 
     // we won't return search note's own noteId
     // also don't allow root since that would force infinite cycle
-    return searchResultNoteIds.filter(resultNoteId => !['root', note.noteId].includes(resultNoteId));
+    return {
+        searchResultNoteIds: searchResultNoteIds.filter(resultNoteId => !['root', note.noteId].includes(resultNoteId)),
+        highlightedTokens
+    };
 }
 
-async function searchFromNote(req) {
+function searchFromNote(req) {
     const note = becca.getNote(req.params.noteId);
 
     if (!note) {
@@ -49,7 +52,7 @@ async function searchFromNote(req) {
     }
 
     if (note.isDeleted) {
-        // this can be triggered from recent changes and it's harmless to return empty list rather than fail
+        // this can be triggered from recent changes, and it's harmless to return empty list rather than fail
         return [];
     }
 
@@ -57,99 +60,7 @@ async function searchFromNote(req) {
         return [400, `Note ${req.params.noteId} is not a search note.`]
     }
 
-    return await searchFromNoteInt(note);
-}
-
-const ACTION_HANDLERS = {
-    deleteNote: (action, note) => {
-        const deleteId = 'searchbulkaction-' + utils.randomString(10);
-
-        note.deleteNote(deleteId);
-    },
-    deleteNoteRevisions: (action, note) => {
-        noteRevisionService.eraseNoteRevisions(note.getNoteRevisions().map(rev => rev.noteRevisionId));
-    },
-    deleteLabel: (action, note) => {
-        for (const label of note.getOwnedLabels(action.labelName)) {
-            label.markAsDeleted();
-        }
-    },
-    deleteRelation: (action, note) => {
-        for (const relation of note.getOwnedRelations(action.relationName)) {
-            relation.markAsDeleted();
-        }
-    },
-    renameLabel: (action, note) => {
-        for (const label of note.getOwnedLabels(action.oldLabelName)) {
-            label.name = action.newLabelName;
-            label.save();
-        }
-    },
-    renameRelation: (action, note) => {
-        for (const relation of note.getOwnedRelations(action.oldRelationName)) {
-            relation.name = action.newRelationName;
-            relation.save();
-        }
-    },
-    setLabelValue: (action, note) => {
-        note.setLabel(action.labelName, action.labelValue);
-    },
-    setRelationTarget: (action, note) => {
-        note.setRelation(action.relationName, action.targetNoteId);
-    },
-    moveNote: (action, note) => {
-        const targetParentNote = becca.getNote(action.targetParentNoteId);
-
-        if (!targetParentNote) {
-            return;
-        }
-
-        let res;
-
-        if (note.getParentBranches().length > 1) {
-            res = cloningService.cloneNoteToNote(note.noteId, action.targetParentNoteId);
-        }
-        else {
-            res = branchService.moveBranchToNote(note.getParentBranches()[0], action.targetParentNoteId);
-        }
-
-        if (!res.success) {
-            log.info(`Moving/cloning note ${note.noteId} to ${action.targetParentNoteId} failed with error ${JSON.stringify(res)}`);
-        }
-    },
-    executeScript: (action, note) => {
-        if (!action.script || !action.script.trim()) {
-            log.info("Ignoring executeScript since the script is empty.")
-            return;
-        }
-
-        const scriptFunc = new Function("note", action.script);
-        scriptFunc(note);
-
-        note.save();
-    }
-};
-
-function getActions(note) {
-    return note.getLabels('action')
-        .map(actionLabel => {
-            let action;
-
-            try {
-                action = JSON.parse(actionLabel.value);
-            } catch (e) {
-                log.error(`Cannot parse '${actionLabel.value}' into search action, skipping.`);
-                return null;
-            }
-
-            if (!(action.name in ACTION_HANDLERS)) {
-                log.error(`Cannot find '${action.name}' search action handler, skipping.`);
-                return null;
-            }
-
-            return action;
-        })
-        .filter(a => !!a);
+    return searchFromNoteInt(note);
 }
 
 function searchAndExecute(req) {
@@ -168,28 +79,9 @@ function searchAndExecute(req) {
         return [400, `Note ${req.params.noteId} is not a search note.`]
     }
 
-    const searchResultNoteIds = searchFromNoteInt(note);
+    const {searchResultNoteIds} = searchFromNoteInt(note);
 
-    const actions = getActions(note);
-
-    for (const resultNoteId of searchResultNoteIds) {
-        const resultNote = becca.getNote(resultNoteId);
-
-        if (!resultNote || resultNote.isDeleted) {
-            continue;
-        }
-
-        for (const action of actions) {
-            try {
-                log.info(`Applying action handler to note ${resultNote.noteId}: ${JSON.stringify(action)}`);
-
-                ACTION_HANDLERS[action.name](action, resultNote);
-            }
-            catch (e) {
-                log.error(`ExecuteScript search action failed with ${e.message}`);
-            }
-        }
-    }
+    bulkActionService.executeActions(note, searchResultNoteIds);
 }
 
 function searchFromRelation(note, relationName) {
@@ -296,10 +188,20 @@ function getRelatedNotes(req) {
     };
 }
 
+function searchTemplates() {
+    const query = formatAttrForSearch({type: 'label', name: "template"}, false);
+
+    return searchService.searchNotes(query, {
+        includeArchivedNotes: true,
+        ignoreHoistedNote: false
+    }).map(note => note.noteId);
+}
+
 module.exports = {
     searchFromNote,
     searchAndExecute,
     getRelatedNotes,
     quickSearch,
-    search
+    search,
+    searchTemplates
 };

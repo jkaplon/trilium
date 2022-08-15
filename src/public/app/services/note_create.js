@@ -43,7 +43,8 @@ async function createNote(parentNotePath, options = {}) {
         content: options.content || "",
         isProtected: options.isProtected,
         type: options.type,
-        mime: options.mime
+        mime: options.mime,
+        templateNoteId: options.templateNoteId
     });
 
     if (options.saveSelection) {
@@ -72,6 +73,25 @@ async function createNote(parentNotePath, options = {}) {
         note: noteEntity,
         branch: branchEntity
     };
+}
+
+async function chooseNoteType() {
+    return new Promise(res => {
+        appContext.triggerCommand("chooseNoteType", {callback: res});
+    });
+}
+
+async function createNoteWithTypePrompt(parentNotePath, options = {}) {
+    const {success, noteType, templateNoteId} = await chooseNoteType();
+
+    if (!success) {
+        return;
+    }
+
+    options.type = noteType;
+    options.templateNoteId = templateNoteId;
+
+    return await createNote(parentNotePath, options);
 }
 
 /* If first element is heading, parse it out and use it as a new heading. */
@@ -105,5 +125,7 @@ async function duplicateSubtree(noteId, parentNotePath) {
 
 export default {
     createNote,
-    duplicateSubtree
+    createNoteWithTypePrompt,
+    duplicateSubtree,
+    chooseNoteType
 };
