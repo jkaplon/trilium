@@ -13,6 +13,7 @@ import appContext from "../services/app_context.js";
 import keyboardActionsService from "../services/keyboard_actions.js";
 import clipboard from "../services/clipboard.js";
 import protectedSessionService from "../services/protected_session.js";
+import linkService from "../services/link.js";
 import syncService from "../services/sync.js";
 import options from "../services/options.js";
 import protectedSessionHolder from "../services/protected_session_holder.js";
@@ -393,6 +394,18 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
                         title: node.title
                     }));
 
+                    if (notes.length === 1) {
+                        linkService.createNoteLink(notes[0].noteId, {referenceLink: true})
+                            .then($link => data.dataTransfer.setData("text/html", $link[0].outerHTML));
+                    }
+                    else {
+                        Promise.all(notes.map(note => linkService.createNoteLink(note.noteId, {referenceLink: true}))).then(links => {
+                            const $list = $("<ul>").append(...links.map($link => $("<li>").append($link)));
+
+                            data.dataTransfer.setData("text/html", $list[0].outerHTML);
+                        });
+                    }
+
                     data.dataTransfer.setData("text", JSON.stringify(notes));
                     return true; // allow dragging to start
                 },
@@ -512,8 +525,6 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
 
                 if (isHoistedNote) {
                     const $unhoistButton = $('<span class="tree-item-button unhoist-button bx bx-door-open" title="Unhoist"></span>');
-
-                    $unhoistButton.on('click', () => alert("bebe"));
 
                     $span.append($unhoistButton);
                 }
@@ -935,7 +946,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
 
         if (this.noteContext
             && this.noteContext.notePath
-            && !this.noteContext.note.isDeleted
+            && !this.noteContext.note?.isDeleted
             && !this.noteContext.notePath.includes("root/hidden")
         ) {
             const newActiveNode = await this.getNodeFromPath(this.noteContext.notePath);
