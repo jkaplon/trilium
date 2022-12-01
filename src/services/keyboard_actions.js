@@ -215,13 +215,13 @@ const DEFAULT_KEYBOARD_ACTIONS = [
     },
     {
         actionName: "activateNextTab",
-        defaultShortcuts: isElectron ? ["CommandOrControl+Tab"] : [],
+        defaultShortcuts: isElectron ? ["CommandOrControl+Tab", "CommandOrControl+PageDown"] : [],
         description: "Activates tab on the right",
         scope: "window"
     },
     {
         actionName: "activatePreviousTab",
-        defaultShortcuts: isElectron ? ["CommandOrControl+Shift+Tab"] : [],
+        defaultShortcuts: isElectron ? ["CommandOrControl+Shift+Tab", "CommandOrControl+PageUp"] : [],
         description: "Activates tab on the left",
         scope: "window"
     },
@@ -500,6 +500,12 @@ const DEFAULT_KEYBOARD_ACTIONS = [
         defaultShortcuts: ["CommandOrControl+Alt+C"],
         description: "Copy selected text without formatting",
         scope: "text-detail"
+    },
+    {
+        actionName: "forceSaveNoteRevision",
+        defaultShortcuts: [],
+        description: "Force creating / saving new note revision of the active note",
+        scope: "window"
     }
 ];
 
