@@ -1,36 +1,29 @@
-import ButtonWidget from "./button_widget.js";
-import appContext from "../../services/app_context.js";
-import froca from "../../services/froca.js";
+import OnClickButtonWidget from "./onclick_button.js";
+import linkContextMenuService from "../../menus/link_context_menu.js";
+import utils from "../../services/utils.js";
+import appContext from "../../components/app_context.js";
 
-export default class OpenNoteButtonWidget extends ButtonWidget {
-    targetNote(noteId) {
-        froca.getNote(noteId).then(note => {
-            if (!note) {
-                console.log(`Note ${noteId} has not been found. This might happen on the first run before the target note is created.`);
+export default class OpenNoteButtonWidget extends OnClickButtonWidget {
+    constructor(noteToOpen) {
+        super();
 
-                if (!this.retried) {
-                    this.retried = true;
+        this.noteToOpen = noteToOpen;
 
-                    setTimeout(() => this.targetNote(noteId), 15000); // should be higher than timeout for createMissingSpecialNotes
-                }
+        this.title(() => this.noteToOpen.title)
+            .icon(() => this.noteToOpen.getIcon())
+            .onClick((widget, evt) => this.launch(evt))
+            .onAuxClick((widget, evt) => this.launch(evt))
+            .onContextMenu(evt => linkContextMenuService.openContextMenu(this.noteToOpen.noteId, null, evt));
+    }
 
-                return;
-            }
+    async launch(evt) {
+        const ctrlKey = utils.isCtrlKey(evt);
 
-            this.icon(note.getIcon());
-            this.title(() => {
-                const n = froca.getNoteFromCache(noteId);
-
-                // always fresh, always decoded (when protected session is available)
-                return n.title;
-            });
-
-            this.refreshIcon();
-        });
-
-        this.onClick(() => appContext.tabManager.openTabWithNoteWithHoisting(noteId, true));
-
-        return this;
+        if ((evt.which === 1 && ctrlKey) || evt.which === 2) {
+            await appContext.tabManager.openInNewTab(this.noteToOpen.noteId);
+        } else {
+            await appContext.tabManager.openInSameTab(this.noteToOpen.noteId);
+        }
     }
 
     initialRenderCompleteEvent() {

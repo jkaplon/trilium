@@ -1,4 +1,4 @@
-import appContext from "../../services/app_context.js";
+import appContext from "../../components/app_context.js";
 import BasicWidget from "../basic_widget.js";
 import utils from "../../services/utils.js";
 
@@ -10,7 +10,6 @@ const TPL = `
             width: 100%;
             min-height: 500px;
             overflow: scroll;
-            line-height: 0.7;
         }
     </style>
 
@@ -54,13 +53,15 @@ export default class NoteSourceDialog extends BasicWidget {
         let textNode;
 
         for (let i = 0; i < node.children.length; i++) {
-            textNode = document.createTextNode('\n' + indentBefore);
+            textNode = document.createTextNode(`
+${indentBefore}`);
             node.insertBefore(textNode, node.children[i]);
 
             this.formatNode(node.children[i], level);
 
             if (node.lastElementChild === node.children[i]) {
-                textNode = document.createTextNode('\n' + indentAfter);
+                textNode = document.createTextNode(`
+${indentAfter}`);
                 node.appendChild(textNode);
             }
         }

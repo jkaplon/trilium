@@ -15,12 +15,15 @@ const NOTE_TYPE_ICONS = {
     "code": "bx bx-code",
     "render": "bx bx-extension",
     "search": "bx bx-file-find",
-    "relation-map": "bx bx-map-alt",
+    "relationMap": "bx bx-map-alt",
     "book": "bx bx-book",
-    "note-map": "bx bx-map-alt",
+    "noteMap": "bx bx-map-alt",
     "mermaid": "bx bx-selection",
     "canvas": "bx bx-pen",
-    "web-view": "bx bx-globe-alt"
+    "webView": "bx bx-globe-alt",
+    "launcher": "bx bx-link",
+    "doc": "bx bxs-file-doc",
+    "contentWidget": "bx bxs-widget"
 };
 
 /**
@@ -116,7 +119,7 @@ class NoteShort {
 
     async getContent() {
         // we're not caching content since these objects are in froca and as such pretty long lived
-        const note = await server.get("notes/" + this.noteId);
+        const note = await server.get(`notes/${this.noteId}`);
 
         return note.content;
     }
@@ -289,7 +292,7 @@ class NoteShort {
     }
 
     isRoot() {
-        return this.noted
+        return this.noteId === 'root';
     }
 
     getAllNotePaths(encounteredNoteIds = null) {
@@ -341,7 +344,7 @@ class NoteShort {
             isInHoistedSubTree: path.includes(hoistedNotePath),
             isArchived: path.find(noteId => froca.notes[noteId].hasLabel('archived')),
             isSearch: path.find(noteId => froca.notes[noteId].type === 'search'),
-            isHidden: path.includes("hidden")
+            isHidden: path.includes('_hidden')
         }));
 
         notePaths.sort((a, b) => {
@@ -351,6 +354,8 @@ class NoteShort {
                 return a.isSearch ? 1 : -1;
             } else if (a.isArchived !== b.isArchived) {
                 return a.isArchived ? 1 : -1;
+            } else if (a.isHidden !== b.isHidden) {
+                return a.isHidden ? 1 : -1;
             } else {
                 return a.notePath.length - b.notePath.length;
             }
@@ -359,7 +364,16 @@ class NoteShort {
         return notePaths;
     }
 
+    /**
+     * @return boolean - true if there's no non-hidden path, note is not cloned to the visible tree
+     */
+    isHiddenCompletely() {
+        return !this.getAllNotePaths().find(notePathArr => !notePathArr.includes('_hidden'));
+    }
+
     __filterAttrs(attributes, type, name) {
+        this.__validateTypeName(type, name);
+
         if (!type && !name) {
             return attributes;
         } else if (type && name) {
@@ -375,6 +389,19 @@ class NoteShort {
         const attrs = this.__getCachedAttributes(path);
 
         return attrs.filter(attr => attr.isInheritable);
+    }
+
+    __validateTypeName(type, name) {
+        if (type && type !== 'label' && type !== 'relation') {
+            throw new Error(`Unrecognized attribute type '${type}'. Only 'label' and 'relation' are possible values.`);
+        }
+
+        if (name) {
+            const firstLetter = name.charAt(0);
+            if (firstLetter === '#' || firstLetter === '~') {
+                throw new Error(`Detect '#' or '~' in the attribute's name. In the API, attribute names should be set without these characters.`);
+            }
+        }
     }
 
     /**
@@ -406,7 +433,7 @@ class NoteShort {
         else if (this.noteId === 'root') {
             return "bx bx-chevrons-right";
         }
-        if (this.noteId === 'share') {
+        if (this.noteId === '_share') {
             return "bx bx-share-alt";
         }
         else if (this.type === 'text') {
@@ -690,6 +717,10 @@ class NoteShort {
         return false;
     }
 
+    isInHiddenSubtree() {
+        return this.noteId === '_hidden' || this.hasAncestor('_hidden');
+    }
+
     /**
      * @deprecated NOOP
      */
@@ -753,7 +784,7 @@ class NoteShort {
 
     /** @returns {boolean} true if this note is JavaScript (code or attachment) */
     isJavaScript() {
-        return (this.type === "code" || this.type === "file")
+        return (this.type === "code" || this.type === "file" || this.type === 'launcher')
             && (this.mime.startsWith("application/javascript")
                 || this.mime === "application/x-javascript"
                 || this.mime === "text/javascript");
@@ -790,10 +821,10 @@ class NoteShort {
 
         if (env === "frontend") {
             const bundleService = (await import("../services/bundle.js")).default;
-            await bundleService.getAndExecuteBundle(this.noteId);
+            return await bundleService.getAndExecuteBundle(this.noteId);
         }
         else if (env === "backend") {
-            await server.post('script/run/' + this.noteId);
+            const resp = await server.post(`script/run/${this.noteId}`);
         }
         else {
             throw new Error(`Unrecognized env type ${env} for note ${this.noteId}`);
@@ -812,7 +843,7 @@ class NoteShort {
                 continue;
             }
 
-            if (parentNote.noteId === 'share' || parentNote.isShared()) {
+            if (parentNote.noteId === '_share' || parentNote.isShared()) {
                 return true;
             }
         }
@@ -822,6 +853,14 @@ class NoteShort {
 
     isContentAvailable() {
         return !this.isProtected || protectedSessionHolder.isProtectedSessionAvailable()
+    }
+
+    isLaunchBarConfig() {
+        return this.type === 'launcher' || ['_lbRoot', '_lbAvailableLaunchers', '_lbVisibleLaunchers'].includes(this.noteId);
+    }
+
+    isOptions() {
+        return this.noteId.startsWith("_options");
     }
 }
 

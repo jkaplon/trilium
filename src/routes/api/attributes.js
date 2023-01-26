@@ -5,6 +5,8 @@ const log = require('../../services/log');
 const attributeService = require('../../services/attributes');
 const Attribute = require('../../becca/entities/attribute');
 const becca = require("../../becca/becca");
+const ValidationError = require("../../errors/validation_error");
+const NotFoundError = require("../../errors/not_found_error");
 
 function getEffectiveNoteAttributes(req) {
     const note = becca.getNote(req.params.noteId);
@@ -20,8 +22,12 @@ function updateNoteAttribute(req) {
     if (body.attributeId) {
         attribute = becca.getAttribute(body.attributeId);
 
+        if (!attribute) {
+            throw new NotFoundError(`Attribute '${body.attributeId}' does not exist.`);
+        }
+
         if (attribute.noteId !== noteId) {
-            return [400, `Attribute ${body.attributeId} is not owned by ${noteId}`];
+            throw new ValidationError(`Attribute '${body.attributeId}' is not owned by ${noteId}`);
         }
 
         if (body.type !== attribute.type
@@ -43,7 +49,7 @@ function updateNoteAttribute(req) {
         }
     }
     else {
-        if (body.type === 'relation' && !body.value.trim()) {
+        if (body.type === 'relation' && !body.value?.trim()) {
             return {};
         }
 
@@ -102,7 +108,7 @@ function deleteNoteAttribute(req) {
 
     if (attribute) {
         if (attribute.noteId !== noteId) {
-            return [400, `Attribute ${attributeId} is not owned by ${noteId}`];
+            throw new ValidationError(`Attribute ${attributeId} is not owned by ${noteId}`);
         }
 
         attribute.markAsDeleted();
@@ -164,7 +170,7 @@ function updateNoteAttributes(req) {
             continue;
         }
 
-        // no existing attribute has been matched so we need to create a new one
+        // no existing attribute has been matched, so we need to create a new one
         // type, name and isInheritable are immutable so even if there is an attribute with matching type & name, we need to create a new one and delete the former one
 
         note.addAttribute(incAttr.type, incAttr.name, incAttr.value, incAttr.isInheritable, position);

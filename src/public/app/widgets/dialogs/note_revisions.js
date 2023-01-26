@@ -1,12 +1,12 @@
 import utils from '../../services/utils.js';
 import server from '../../services/server.js';
 import toastService from "../../services/toast.js";
-import appContext from "../../services/app_context.js";
+import appContext from "../../components/app_context.js";
 import libraryLoader from "../../services/library_loader.js";
 import openService from "../../services/open.js";
 import protectedSessionHolder from "../../services/protected_session_holder.js";
 import BasicWidget from "../basic_widget.js";
-import dialogService from "../dialog.js";
+import dialogService from "../../services/dialog.js";
 
 const TPL = `
 <div class="note-revisions-dialog modal fade mx-auto" tabindex="-1" role="dialog">
@@ -147,9 +147,9 @@ export default class NoteRevisionsDialog extends BasicWidget {
         for (const item of this.revisionItems) {
             this.$list.append(
                 $('<a class="dropdown-item" tabindex="0">')
-                    .text(item.dateLastEdited.substr(0, 16) + ` (${item.contentLength} bytes)`)
+                    .text(`${item.dateLastEdited.substr(0, 16)} (${item.contentLength} bytes)`)
                     .attr('data-note-revision-id', item.noteRevisionId)
-                    .attr('title', 'This revision was last edited on ' + item.dateLastEdited)
+                    .attr('title', `This revision was last edited on ${item.dateLastEdited}`)
             );
         }
 
@@ -234,14 +234,14 @@ export default class NoteRevisionsDialog extends BasicWidget {
                 renderMathInElement($content[0], {trust: true});
             }
         }
-        else if (revisionItem.type === 'code') {
+        else if (revisionItem.type === 'code' || revisionItem.type === 'mermaid') {
             this.$content.html($("<pre>").text(fullNoteRevision.content));
         }
         else if (revisionItem.type === 'image') {
             this.$content.html($("<img>")
                 // reason why we put this inline as base64 is that we do not want to let user to copy this
-                // as a URL to be used in a note. Instead if they copy and paste it into a note, it will be a uploaded as a new note
-                .attr("src", `data:${note.mime};base64,` + fullNoteRevision.content)
+                // as a URL to be used in a note. Instead, if they copy and paste it into a note, it will be a uploaded as a new note
+                .attr("src", `data:${fullNoteRevision.mime};base64,${fullNoteRevision.content}`)
                 .css("max-width", "100%")
                 .css("max-height", "100%"));
         }
@@ -253,7 +253,7 @@ export default class NoteRevisionsDialog extends BasicWidget {
                 ))
                 .append($("<tr>").append(
                     $("<th>").text("File size:"),
-                    $("<td>").text(revisionItem.contentLength + " bytes")
+                    $("<td>").text(`${revisionItem.contentLength} bytes`)
                 ));
 
             if (fullNoteRevision.content) {

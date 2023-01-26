@@ -4,14 +4,16 @@ import toastService from "./toast.js";
 import froca from "./froca.js";
 import hoistedNoteService from "./hoisted_note.js";
 import ws from "./ws.js";
-import appContext from "./app_context.js";
+import appContext from "../components/app_context.js";
 
 async function moveBeforeBranch(branchIdsToMove, beforeBranchId) {
     branchIdsToMove = filterRootNote(branchIdsToMove);
     branchIdsToMove = filterSearchBranches(branchIdsToMove);
 
-    if (beforeBranchId === 'root') {
-        toastService.showError('Cannot move notes before root note.');
+    const beforeBranch = await froca.getBranch(beforeBranchId);
+
+    if (['root', '_lbRoot', '_lbAvailableLaunchers', '_lbVisibleLaunchers'].includes(beforeBranch.noteId)) {
+        toastService.showError('Cannot move notes here.');
         return;
     }
 
@@ -31,8 +33,16 @@ async function moveAfterBranch(branchIdsToMove, afterBranchId) {
 
     const afterNote = await froca.getBranch(afterBranchId).getNote();
 
-    if (afterNote.noteId === 'root' || afterNote.noteId === hoistedNoteService.getHoistedNoteId()) {
-        toastService.showError('Cannot move notes after root note.');
+    const forbiddenNoteIds = [
+        'root',
+        hoistedNoteService.getHoistedNoteId(),
+        '_lbRoot',
+        '_lbAvailableLaunchers',
+        '_lbVisibleLaunchers'
+    ];
+
+    if (forbiddenNoteIds.includes(afterNote.noteId)) {
+        toastService.showError('Cannot move notes here.');
         return;
     }
 
@@ -49,6 +59,13 @@ async function moveAfterBranch(branchIdsToMove, afterBranchId) {
 }
 
 async function moveToParentNote(branchIdsToMove, newParentBranchId) {
+    const newParentBranch = await froca.getBranch(newParentBranchId);
+
+    if (newParentBranch.noteId === '_lbRoot') {
+        toastService.showError('Cannot move notes here.');
+        return;
+    }
+
     branchIdsToMove = filterRootNote(branchIdsToMove);
 
     for (const branchIdToMove of branchIdsToMove) {
@@ -103,10 +120,10 @@ async function deleteNotes(branchIdsToDelete, forceDeleteAllClones = false) {
         const branch = froca.getBranch(branchIdToDelete);
 
         if (deleteAllClones) {
-            await server.remove(`notes/${branch.noteId}` + query);
+            await server.remove(`notes/${branch.noteId}${query}`);
         }
         else {
-            await server.remove(`branches/${branchIdToDelete}` + query);
+            await server.remove(`branches/${branchIdToDelete}${query}`);
         }
     }
 
@@ -124,7 +141,10 @@ async function moveNodeUpInHierarchy(node) {
         return;
     }
 
-    const resp = await server.put('branches/' + node.data.branchId + '/move-after/' + node.getParent().data.branchId);
+    const targetBranchId = node.getParent().data.branchId;
+    const branchIdToMove = node.data.branchId;
+
+    const resp = await server.put(`branches/${branchIdToMove}/move-after/${targetBranchId}`);
 
     if (!resp.success) {
         toastService.showError(resp.message);
@@ -170,7 +190,7 @@ ws.subscribeToMessages(async message => {
         toastService.closePersistent(message.taskId);
         toastService.showError(message.message);
     } else if (message.type === 'taskProgressCount') {
-        toastService.showPersistent(makeToast(message.taskId, "Delete notes in progress: " + message.progressCount));
+        toastService.showPersistent(makeToast(message.taskId, `Delete notes in progress: ${message.progressCount}`));
     } else if (message.type === 'taskSucceeded') {
         const toast = makeToast(message.taskId, "Delete finished successfully.");
         toast.closeAfter = 5000;
@@ -188,7 +208,7 @@ ws.subscribeToMessages(async message => {
         toastService.closePersistent(message.taskId);
         toastService.showError(message.message);
     } else if (message.type === 'taskProgressCount') {
-        toastService.showPersistent(makeToast(message.taskId, "Undeleting notes in progress: " + message.progressCount));
+        toastService.showPersistent(makeToast(message.taskId, `Undeleting notes in progress: ${message.progressCount}`));
     } else if (message.type === 'taskSucceeded') {
         const toast = makeToast(message.taskId, "Undeleting notes finished successfully.");
         toast.closeAfter = 5000;
@@ -219,7 +239,7 @@ async function cloneNoteToNote(childNoteId, parentNoteId, prefix) {
 
 // beware that first arg is noteId and second is branchId!
 async function cloneNoteAfter(noteId, afterBranchId) {
-    const resp = await server.put('notes/' + noteId + '/clone-after/' + afterBranchId);
+    const resp = await server.put(`notes/${noteId}/clone-after/${afterBranchId}`);
 
     if (!resp.success) {
         toastService.showError(resp.message);

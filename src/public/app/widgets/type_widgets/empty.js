@@ -1,6 +1,6 @@
 import noteAutocompleteService from '../../services/note_autocomplete.js';
 import TypeWidget from "./type_widget.js";
-import appContext from "../../services/app_context.js";
+import appContext from "../../components/app_context.js";
 import searchService from "../../services/search.js";
 
 const TPL = `
@@ -76,9 +76,9 @@ export default class EmptyTypeWidget extends TypeWidget {
         for (const workspaceNote of workspaceNotes) {
             this.$workspaceNotes.append(
                 $('<div class="workspace-note">')
-                    .append($("<div>").addClass(workspaceNote.getIcon() + " workspace-icon"))
+                    .append($("<div>").addClass(`${workspaceNote.getIcon()} workspace-icon`))
                     .append($("<div>").text(workspaceNote.title))
-                    .attr("title", "Enter workspace " + workspaceNote.title)
+                    .attr("title", `Enter workspace ${workspaceNote.title}`)
                     .on('click', () => this.triggerCommand('hoistNote', {noteId: workspaceNote.noteId}))
             );
         }

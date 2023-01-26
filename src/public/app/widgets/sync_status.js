@@ -4,7 +4,7 @@ import options from "../services/options.js";
 import syncService from "../services/sync.js";
 
 const TPL = `
-<div class="sync-status-widget icon-action">
+<div class="sync-status-widget launcher-button">
     <style>
     .sync-status-widget {
     }
@@ -78,8 +78,6 @@ export default class SyncStatusWidget extends BasicWidget {
     constructor() {
         super();
 
-        ws.subscribeToMessages(message => this.processMessage(message));
-
         this.syncState = 'unknown';
         this.allChangesPushed = false;
     }
@@ -93,8 +91,9 @@ export default class SyncStatusWidget extends BasicWidget {
         });
 
         this.$widget.find('.sync-status-icon:not(.sync-status-in-progress)')
-            .on('click', () => syncService.syncNow())
+            .on('click', () => syncService.syncNow());
 
+        ws.subscribeToMessages(message => this.processMessage(message));
     }
 
     showIcon(className) {
@@ -105,7 +104,7 @@ export default class SyncStatusWidget extends BasicWidget {
 
         this.$widget.show();
         this.$widget.find('.sync-status-icon').hide();
-        this.$widget.find('.sync-status-' + className).show();
+        this.$widget.find(`.sync-status-${className}`).show();
     }
 
     processMessage(message) {
@@ -134,7 +133,7 @@ export default class SyncStatusWidget extends BasicWidget {
         if (['unknown', 'in-progress'].includes(this.syncState)) {
             this.showIcon(this.syncState);
         } else {
-            this.showIcon(this.syncState + '-' + (this.allChangesPushed ? 'no-changes' : 'with-changes'));
+            this.showIcon(`${this.syncState}-${this.allChangesPushed ? 'no-changes' : 'with-changes'}`);
         }
     }
 }

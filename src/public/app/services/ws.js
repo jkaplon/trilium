@@ -3,7 +3,7 @@ import toastService from "./toast.js";
 import server from "./server.js";
 import options from "./options.js";
 import frocaUpdater from "./froca_updater.js";
-import appContext from "./app_context.js";
+import appContext from "../components/app_context.js";
 
 const messageHandlers = [];
 
@@ -195,8 +195,7 @@ async function consumeFrontendUpdateData() {
 
 function connectWebSocket() {
     const loc = window.location;
-    const webSocketUri = (loc.protocol === "https:" ? "wss:" : "ws:")
-                       + "//" + loc.host + loc.pathname;
+    const webSocketUri = `${loc.protocol === "https:" ? "wss:" : "ws:"}//${loc.host}${loc.pathname}`;
 
     // use wss for secure messaging
     const ws = new WebSocket(webSocketUri);

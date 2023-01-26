@@ -2,9 +2,8 @@
 
 const Note = require('./note');
 const AbstractEntity = require("./abstract_entity");
-const sql = require("../../services/sql");
 const dateUtils = require("../../services/date_utils");
-const utils = require("../../services/utils.js");
+const utils = require("../../services/utils");
 const TaskContext = require("../../services/task_context");
 const cls = require("../../services/cls");
 const log = require("../../services/log");
@@ -12,6 +11,9 @@ const log = require("../../services/log");
 /**
  * Branch represents a relationship between a child note and its parent note. Trilium allows a note to have multiple
  * parents.
+ *
+ * Note that you should not rely on the branch's identity, since it can change easily with a note's move.
+ * Always check noteId instead.
  *
  * @extends AbstractEntity
  */
@@ -76,7 +78,7 @@ class Branch extends AbstractEntity {
             childNote.parentBranches.push(this);
         }
 
-        if (this.branchId === 'root') {
+        if (this.noteId === 'root') {
             return;
         }
 
@@ -120,6 +122,19 @@ class Branch extends AbstractEntity {
     }
 
     /**
+     * Branch is weak when its existence should not hinder deletion of its note.
+     * As a result, note with only weak branches should be immediately deleted.
+     * An example is shared or bookmarked clones - they are created automatically and exist for technical reasons,
+     * not as user-intended actions. From user perspective, they don't count as real clones and for the purpose
+     * of deletion should not act as a clone.
+     *
+     * @returns {boolean}
+     */
+    get isWeak() {
+        return ['_share', '_lbBookmarks'].includes(this.parentNoteId);
+    }
+
+    /**
      * Delete a branch. If this is a last note's branch, delete the note as well.
      *
      * @param {string} [deleteId] - optional delete identified
@@ -150,8 +165,7 @@ class Branch extends AbstractEntity {
             }
         }
 
-        if (this.branchId === 'root'
-            || this.noteId === 'root'
+        if (this.noteId === 'root'
             || this.noteId === cls.getHoistedNoteId()) {
 
             throw new Error("Can't delete root or hoisted branch/note");
@@ -159,20 +173,22 @@ class Branch extends AbstractEntity {
 
         this.markAsDeleted(deleteId);
 
-        const notDeletedBranches = note.getParentBranches();
+        const notDeletedBranches = note.getStrongParentBranches();
 
         if (notDeletedBranches.length === 0) {
+            for (const weakBranch of note.getParentBranches()) {
+                weakBranch.markAsDeleted(deleteId);
+            }
+
             for (const childBranch of note.getChildBranches()) {
                 childBranch.deleteBranch(deleteId, taskContext);
             }
 
             // first delete children and then parent - this will show up better in recent changes
 
-            log.info("Deleting note " + note.noteId);
+            log.info(`Deleting note ${note.noteId}`);
 
-            // marking note as deleted as a signal to event handlers that the note is being deleted
-            // (isDeleted is being checked against becca)
-            delete this.becca.notes[note.noteId];
+            this.becca.notes[note.noteId].isBeingDeleted = true;
 
             for (const attribute of note.getOwnedAttributes()) {
                 attribute.markAsDeleted(deleteId);
@@ -192,14 +208,32 @@ class Branch extends AbstractEntity {
     }
 
     beforeSaving() {
+        if (!this.noteId || !this.parentNoteId) {
+            throw new Error(`noteId and parentNoteId are mandatory properties for Branch`);
+        }
+
+        this.branchId = `${this.parentNoteId}_${this.noteId}`;
+
         if (this.notePosition === undefined || this.notePosition === null) {
-            // TODO finding new position can be refactored into becca
-            const maxNotePos = sql.getValue('SELECT MAX(notePosition) FROM branches WHERE parentNoteId = ? AND isDeleted = 0', [this.parentNoteId]);
-            this.notePosition = maxNotePos === null ? 0 : maxNotePos + 10;
+            let maxNotePos = 0;
+
+            for (const childBranch of this.parentNote.getChildBranches()) {
+                if (maxNotePos < childBranch.notePosition
+                    && childBranch.noteId !== '_hidden' // hidden has very large notePosition to always stay last
+                ) {
+                    maxNotePos = childBranch.notePosition;
+                }
+            }
+
+            this.notePosition = maxNotePos + 10;
         }
 
         if (!this.isExpanded) {
             this.isExpanded = false;
+        }
+
+        if (!this.prefix?.trim()) {
+            this.prefix = null;
         }
 
         this.utcDateModified = dateUtils.utcNowDateTime();
@@ -223,13 +257,20 @@ class Branch extends AbstractEntity {
     }
 
     createClone(parentNoteId, notePosition) {
-        return new Branch({
-            noteId: this.noteId,
-            parentNoteId: parentNoteId,
-            notePosition: notePosition,
-            prefix: this.prefix,
-            isExpanded: this.isExpanded
-        });
+        const existingBranch = this.becca.getBranchFromChildAndParent(this.noteId, parentNoteId);
+
+        if (existingBranch) {
+            existingBranch.notePosition = notePosition;
+            return existingBranch;
+        } else {
+            return new Branch({
+                noteId: this.noteId,
+                parentNoteId: parentNoteId,
+                notePosition: notePosition,
+                prefix: this.prefix,
+                isExpanded: this.isExpanded
+            });
+        }
     }
 }
 

@@ -5,6 +5,7 @@ const AbstractEntity = require("./abstract_entity");
 const sql = require("../../services/sql");
 const dateUtils = require("../../services/date_utils");
 const promotedAttributeDefinitionParser = require("../../services/promoted_attribute_definition_parser");
+const {sanitizeAttributeName} = require("../../services/sanitize_attribute_name");
 
 /**
  * Attribute is an abstract concept which has two real uses - label (key - value pair)
@@ -62,7 +63,6 @@ class Attribute extends AbstractEntity {
         return this;
     }
 
-
     init() {
         if (this.attributeId) {
             this.becca.attributes[this.attributeId] = this;
@@ -83,6 +83,20 @@ class Attribute extends AbstractEntity {
 
         if (targetNote) {
             targetNote.targetRelations.push(this);
+        }
+    }
+
+    validate() {
+        if (!["label", "relation"].includes(this.type)) {
+            throw new Error(`Invalid attribute type '${this.type}' in attribute '${this.attributeId}' of note '${this.noteId}'`);
+        }
+
+        if (!this.name?.trim()) {
+            throw new Error(`Invalid empty name in attribute '${this.attributeId}' of note '${this.noteId}'`);
+        }
+
+        if (this.type === 'relation' && !(this.value in this.becca.notes)) {
+            throw new Error(`Cannot save relation '${this.name}' of note '${this.noteId}' since it target not existing note '${this.value}'.`);
         }
     }
 
@@ -113,7 +127,13 @@ class Attribute extends AbstractEntity {
      * @returns {Note|null}
      */
     getNote() {
-        return this.becca.getNote(this.noteId);
+        const note = this.becca.getNote(this.noteId);
+
+        if (!note) {
+            throw new Error(`Note '${this.noteId}' of attribute '${this.attributeId}', type '${this.type}', name '${this.name}' does not exist.`);
+        }
+
+        return note;
     }
 
     /**
@@ -157,11 +177,11 @@ class Attribute extends AbstractEntity {
     }
 
     beforeSaving() {
-        if (!this.value) {
-            if (this.type === 'relation') {
-                throw new Error(`Cannot save relation ${this.name} since it does not target any note.`);
-            }
+        this.validate();
 
+        this.name = sanitizeAttributeName(this.name);
+
+        if (!this.value) {
             // null value isn't allowed
             this.value = "";
         }

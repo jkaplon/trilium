@@ -168,7 +168,7 @@ const STRING_MIME_TYPES = [
 
 function isStringNote(type, mime) {
     // render and book are string note in the sense that they are expected to contain empty string
-    return ["text", "code", "relation-map", "search", "render", "book", "mermaid", "canvas"].includes(type)
+    return ["text", "code", "relationMap", "search", "render", "book", "mermaid", "canvas"].includes(type)
         || mime.startsWith('text/')
         || STRING_MIME_TYPES.includes(mime);
 }
@@ -191,9 +191,9 @@ function formatDownloadTitle(filename, type, mime) {
     filename = sanitize(filename);
 
     if (type === 'text') {
-        return filename + '.html';
-    } else if (['relation-map', 'canvas', 'search'].includes(type)) {
-        return filename + '.json';
+        return `${filename}.html`;
+    } else if (['relationMap', 'canvas', 'search'].includes(type)) {
+        return `${filename}.json`;
     } else {
         if (!mime) {
             return filename;
@@ -208,7 +208,7 @@ function formatDownloadTitle(filename, type, mime) {
         }
 
         for (const ext of extensions) {
-            if (filenameLc.endsWith('.' + ext)) {
+            if (filenameLc.endsWith(`.${ext}`)) {
                 return filename;
             }
         }
@@ -221,7 +221,7 @@ function formatDownloadTitle(filename, type, mime) {
             return filename;
         }
 
-        return filename + '.' + extensions[0];
+        return `${filename}.${extensions[0]}`;
     }
 }
 
@@ -291,6 +291,10 @@ function deferred() {
 }
 
 function removeDiacritic(str) {
+    if (!str) {
+        return "";
+    }
+
     return str.normalize("NFD").replace(/\p{Diacritic}/gu, "");
 }
 

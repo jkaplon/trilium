@@ -1,11 +1,11 @@
 import treeService from './tree.js';
-import linkContextMenuService from "./link_context_menu.js";
-import appContext from "./app_context.js";
+import linkContextMenuService from "../menus/link_context_menu.js";
+import appContext from "../components/app_context.js";
 import froca from "./froca.js";
 import utils from "./utils.js";
 
 function getNotePathFromUrl(url) {
-    const notePathMatch = /#(root[A-Za-z0-9/]*)$/.exec(url);
+    const notePathMatch = /#(root[A-Za-z0-9_/]*)$/.exec(url);
 
     return notePathMatch === null ? null : notePathMatch[1];
 }
@@ -20,7 +20,7 @@ async function createNoteLink(notePath, options = {}) {
     if (!notePath.startsWith("root")) {
         // all note paths should start with "root/" (except for "root" itself)
         // used e.g. to find internal links
-        notePath = "root/" + notePath;
+        notePath = `root/${notePath}`;
     }
 
     let noteTitle = options.title;
@@ -41,12 +41,12 @@ async function createNoteLink(notePath, options = {}) {
         const note = await froca.getNote(noteId);
 
         $container
-            .append($("<span>").addClass("bx " + note.getIcon()))
+            .append($("<span>").addClass(`bx ${note.getIcon()}`))
             .append(" ");
     }
 
     const $noteLink = $("<a>", {
-        href: '#' + notePath,
+        href: `#${notePath}`,
         text: noteTitle
     }).attr('data-action', 'note')
         .attr('data-note-path', notePath);
@@ -70,7 +70,7 @@ async function createNoteLink(notePath, options = {}) {
             const parentNotePath = resolvedNotePathSegments.join("/").trim();
 
             if (parentNotePath) {
-                $container.append($("<small>").text(" (" + await treeService.getNotePathTitle(parentNotePath) + ")"));
+                $container.append($("<small>").text(` (${await treeService.getNotePathTitle(parentNotePath)})`));
             }
         }
     }
@@ -90,27 +90,27 @@ function getNotePathFromLink($link) {
     return url ? getNotePathFromUrl(url) : null;
 }
 
-function goToLink(e) {
-    const $link = $(e.target).closest("a,.block-link");
+function goToLink(evt) {
+    const $link = $(evt.target).closest("a,.block-link");
     const address = $link.attr('href');
 
     if (address?.startsWith("data:")) {
         return true;
     }
 
-    e.preventDefault();
-    e.stopPropagation();
+    evt.preventDefault();
+    evt.stopPropagation();
 
     const notePath = getNotePathFromLink($link);
 
-    const ctrlKey = (!utils.isMac() && e.ctrlKey) || (utils.isMac() && e.metaKey);
+    const ctrlKey = utils.isCtrlKey(evt);
 
     if (notePath) {
-        if ((e.which === 1 && ctrlKey) || e.which === 2) {
+        if ((evt.which === 1 && ctrlKey) || evt.which === 2) {
             appContext.tabManager.openTabWithNoteWithHoisting(notePath);
         }
-        else if (e.which === 1) {
-            const ntxId = $(e.target).closest("[data-ntx-id]").attr("data-ntx-id");
+        else if (evt.which === 1) {
+            const ntxId = $(evt.target).closest("[data-ntx-id]").attr("data-ntx-id");
 
             const noteContext = ntxId
                 ? appContext.tabManager.getNoteContextById(ntxId)
@@ -124,7 +124,7 @@ function goToLink(e) {
         }
     }
     else {
-        if ((e.which === 1 && ctrlKey) || e.which === 2
+        if ((evt.which === 1 && ctrlKey) || evt.which === 2
             || $link.hasClass("ck-link-actions__preview") // within edit link dialog single click suffices
             || $link.closest("[contenteditable]").length === 0 // outside of CKEditor single click suffices
         ) {
@@ -155,7 +155,7 @@ function linkContextMenu(e) {
 
     e.preventDefault();
 
-    linkContextMenuService.openContextMenu(notePath, e);
+    linkContextMenuService.openContextMenu(notePath, null, e);
 }
 
 async function loadReferenceLinkTitle(noteId, $el) {
@@ -170,10 +170,15 @@ async function loadReferenceLinkTitle(noteId, $el) {
         title = note.isDeleted ? `${note.title} (deleted)` : note.title;
     }
 
-    $el.addClass(note.getColorClass());
+    if (note) {
+        $el.addClass(note.getColorClass());
+    }
+
     $el.text(title);
 
-    $el.prepend($("<span>").addClass(note.getIcon()));
+    if (note) {
+        $el.prepend($("<span>").addClass(note.getIcon()));
+    }
 }
 
 $(document).on('click', "a", goToLink);

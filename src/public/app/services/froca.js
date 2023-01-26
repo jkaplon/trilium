@@ -2,7 +2,7 @@ import Branch from "../entities/branch.js";
 import NoteShort from "../entities/note_short.js";
 import Attribute from "../entities/attribute.js";
 import server from "./server.js";
-import appContext from "./app_context.js";
+import appContext from "../components/app_context.js";
 import NoteComplement from "../entities/note_complement.js";
 
 /**
@@ -41,7 +41,7 @@ class Froca {
     }
 
     async loadSubTree(subTreeNoteId) {
-        const resp = await server.get('tree?subTreeNoteId=' + subTreeNoteId);
+        const resp = await server.get(`tree?subTreeNoteId=${subTreeNoteId}`);
 
         this.addResp(resp);
 
@@ -176,7 +176,7 @@ class Froca {
             return;
         }
 
-        const {searchResultNoteIds, highlightedTokens} = await server.get('search-note/' + note.noteId);
+        const {searchResultNoteIds, highlightedTokens, error} = await server.get(`search-note/${note.noteId}`);
 
         if (!Array.isArray(searchResultNoteIds)) {
             throw new Error(`Search note '${note.noteId}' failed: ${searchResultNoteIds}`);
@@ -192,7 +192,7 @@ class Froca {
 
         searchResultNoteIds.forEach((resultNoteId, index) => branches.push({
             // branchId should be repeatable since sometimes we reload some notes without rerendering the tree
-            branchId: "virt-" + note.noteId + '-' + resultNoteId,
+            branchId: `virt-${note.noteId}-${resultNoteId}`,
             noteId: resultNoteId,
             parentNoteId: note.noteId,
             notePosition: (index + 1) * 10,
@@ -208,13 +208,15 @@ class Froca {
 
         froca.notes[note.noteId].searchResultsLoaded = true;
         froca.notes[note.noteId].highlightedTokens = highlightedTokens;
+
+        return {error};
     }
 
     /** @returns {NoteShort[]} */
     getNotesFromCache(noteIds, silentNotFoundError = false) {
         return noteIds.map(noteId => {
             if (!this.notes[noteId] && !silentNotFoundError) {
-                console.trace(`Can't find note "${noteId}"`);
+                console.trace(`Can't find note '${noteId}'`);
 
                 return null;
             }
@@ -226,13 +228,14 @@ class Froca {
 
     /** @returns {Promise<NoteShort[]>} */
     async getNotes(noteIds, silentNotFoundError = false) {
+        noteIds = Array.from(new Set(noteIds)); // make unique
         const missingNoteIds = noteIds.filter(noteId => !this.notes[noteId]);
 
         await this.reloadNotes(missingNoteIds);
 
         return noteIds.map(noteId => {
             if (!this.notes[noteId] && !silentNotFoundError) {
-                console.trace(`Can't find note "${noteId}"`);
+                console.trace(`Can't find note '${noteId}'`);
 
                 return null;
             } else {
@@ -282,7 +285,7 @@ class Froca {
     getBranch(branchId, silentNotFoundError = false) {
         if (!(branchId in this.branches)) {
             if (!silentNotFoundError) {
-                logError(`Not existing branch ${branchId}`);
+                logError(`Not existing branch '${branchId}'`);
             }
         }
         else {
@@ -292,13 +295,13 @@ class Froca {
 
     async getBranchId(parentNoteId, childNoteId) {
         if (childNoteId === 'root') {
-            return 'root';
+            return 'none_root';
         }
 
         const child = await this.getNote(childNoteId);
 
         if (!child) {
-            logError(`Could not find branchId for parent=${parentNoteId}, child=${childNoteId} since child does not exist`);
+            logError(`Could not find branchId for parent '${parentNoteId}', child '${childNoteId}' since child does not exist`);
 
             return null;
         }
@@ -311,13 +314,13 @@ class Froca {
      */
     async getNoteComplement(noteId) {
         if (!this.noteComplementPromises[noteId]) {
-            this.noteComplementPromises[noteId] = server.get('notes/' + noteId)
+            this.noteComplementPromises[noteId] = server.get(`notes/${noteId}`)
                 .then(row => new NoteComplement(row))
                 .catch(e => console.error(`Cannot get note complement for note '${noteId}'`));
 
-            // we don't want to keep large payloads forever in memory so we clean that up quite quickly
+            // we don't want to keep large payloads forever in memory, so we clean that up quite quickly
             // this cache is more meant to share the data between different components within one business transaction (e.g. loading of the note into the tab context and all the components)
-            // this is also a work around for missing invalidation after change
+            // this is also a workaround for missing invalidation after change
             this.noteComplementPromises[noteId].then(
                 () => setTimeout(() => this.noteComplementPromises[noteId] = null, 1000)
             );

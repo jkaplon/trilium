@@ -1,6 +1,6 @@
 import BasicWidget from "../basic_widget.js";
-import appContext from "../../services/app_context.js";
-import contextMenu from "../../services/context_menu.js";
+import appContext from "../../components/app_context.js";
+import contextMenu from "../../menus/context_menu.js";
 import noteCreateService from "../../services/note_create.js";
 import branchService from "../../services/branches.js";
 import treeService from "../../services/tree.js";
@@ -40,7 +40,7 @@ class MobileDetailMenuWidget extends BasicWidget {
                         }
                     }
                     else {
-                        throw new Error("Unrecognized command " + command);
+                        throw new Error(`Unrecognized command ${command}`);
                     }
                 }
             });

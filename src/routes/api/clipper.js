@@ -14,8 +14,8 @@ const Attribute = require('../../becca/entities/attribute');
 const htmlSanitizer = require('../../services/html_sanitizer');
 const {formatAttrForSearch} = require("../../services/attribute_formatter");
 
-function findClippingNote(todayNote, pageUrl) {
-    const notes = todayNote.searchNotesInSubtree(
+function findClippingNote(clipperInboxNote, pageUrl) {
+    const notes = clipperInboxNote.searchNotesInSubtree(
         formatAttrForSearch({
             type: 'label',
             name: "pageUrl",
@@ -47,6 +47,7 @@ function addClipping(req) {
 
     const clipperInbox = getClipperInboxNote();
 
+    pageUrl = htmlSanitizer.sanitizeUrl(pageUrl);
     let clippingNote = findClippingNote(clipperInbox, pageUrl);
 
     if (!clippingNote) {
@@ -57,8 +58,6 @@ function addClipping(req) {
             type: 'text'
         }).note;
 
-        pageUrl = htmlSanitizer.sanitize(pageUrl);
-
         clippingNote.setLabel('clipType', 'clippings');
         clippingNote.setLabel('pageUrl', pageUrl);
         clippingNote.setLabel('iconClass', 'bx bx-globe');
@@ -68,7 +67,7 @@ function addClipping(req) {
 
     const existingContent = clippingNote.getContent();
 
-    clippingNote.setContent(existingContent + (existingContent.trim() ? "<br/>" : "") + rewrittenContent);
+    clippingNote.setContent(`${existingContent}${existingContent.trim() ? "<br/>" : ""}${rewrittenContent}`);
 
     return {
         noteId: clippingNote.noteId
@@ -79,7 +78,7 @@ function createNote(req) {
     let {title, content, pageUrl, images, clipType} = req.body;
 
     if (!title || !title.trim()) {
-        title = "Clipped note from " + pageUrl;
+        title = `Clipped note from ${pageUrl}`;
     }
 
     const clipperInbox = getClipperInboxNote();
@@ -96,7 +95,7 @@ function createNote(req) {
     note.setLabel('clipType', clipType);
 
     if (pageUrl) {
-        pageUrl = htmlSanitizer.sanitize(pageUrl);
+        pageUrl = htmlSanitizer.sanitizeUrl(pageUrl);
 
         note.setLabel('pageUrl', pageUrl);
         note.setLabel('iconClass', 'bx bx-globe');
@@ -123,7 +122,7 @@ function processContent(images, note, content) {
                     ? dataUrl.substr(0, Math.min(100, dataUrl.length))
                     : "null";
 
-                log.info("Image could not be recognized as data URL: " + excerpt);
+                log.info(`Image could not be recognized as data URL: ${excerpt}`);
                 continue;
             }
 

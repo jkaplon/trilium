@@ -9,11 +9,11 @@ import dateNotesService from './date_notes.js';
 import searchService from './search.js';
 import CollapsibleWidget from '../widgets/collapsible_widget.js';
 import ws from "./ws.js";
-import appContext from "./app_context.js";
+import appContext from "../components/app_context.js";
 import NoteContextAwareWidget from "../widgets/note_context_aware_widget.js";
-import NoteContextCachingWidget from "../widgets/note_context_caching_widget.js";
 import BasicWidget from "../widgets/basic_widget.js";
 import SpacedUpdate from "./spaced_update.js";
+import shortcutService from "./shortcuts.js";
 
 /**
  * This is the main frontend API interface for scripts. It's published in the local "api" object.
@@ -22,8 +22,6 @@ import SpacedUpdate from "./spaced_update.js";
  * @hideconstructor
  */
 function FrontendScriptApi(startNote, currentNote, originEntity = null, $container = null) {
-    const $pluginButtons = $("#plugin-buttons");
-
     /** @property {jQuery} container of all the rendered script content */
     this.$container = $container;
 
@@ -40,23 +38,26 @@ function FrontendScriptApi(startNote, currentNote, originEntity = null, $contain
     /** @property {CollapsibleWidget} */
     this.CollapsibleWidget = CollapsibleWidget;
 
+    /** @property {NoteContextAwareWidget} */
+    this.NoteContextAwareWidget = NoteContextAwareWidget;
+
     /**
      * @property {NoteContextAwareWidget}
      * @deprecated use NoteContextAwareWidget instead
      */
     this.TabAwareWidget = NoteContextAwareWidget;
 
-    /** @property {NoteContextAwareWidget} */
-    this.NoteContextAwareWidget = NoteContextAwareWidget;
+    /**
+     * @property {NoteContextAwareWidget}
+     * @deprecated use NoteContextAwareWidget instead
+     */
+    this.TabCachingWidget = NoteContextAwareWidget;
 
     /**
-     * @property {NoteContextCachingWidget}
-     * @deprecated use NoteContextCachingWidget instead
+     * @property {NoteContextAwareWidget}
+     * @deprecated use NoteContextAwareWidget instead
      */
-    this.TabCachingWidget = NoteContextCachingWidget;
-
-    /** @property {NoteContextAwareWidget} */
-    this.NoteContextCachingWidget = NoteContextCachingWidget;
+    this.NoteContextCachingWidget = NoteContextAwareWidget;
 
     /** @property {BasicWidget} */
     this.BasicWidget = BasicWidget;
@@ -123,7 +124,9 @@ function FrontendScriptApi(startNote, currentNote, originEntity = null, $contain
     };
 
     /**
-     * @typedef {Object} ToolbarButtonOptions
+     * @typedef {Object} AddButtonToToolbarOptions
+     * @property {string} [id] - id of the button, used to identify the old instances of this button to be replaced
+     *                          ID is optional because of BC, but not specifying it is deprecated. ID can be alphanumeric only.
      * @property {string} title
      * @property {string} [icon] - name of the boxicon to be used (e.g. "time" for "bx-time" icon)
      * @property {function} action - callback handling the click on the button
@@ -131,48 +134,19 @@ function FrontendScriptApi(startNote, currentNote, originEntity = null, $contain
      */
 
     /**
-     * Adds new button to the plugin area.
+     * Adds a new launcher to the launchbar. If the launcher (id) already exists, it will be updated.
      *
-     * @param {ToolbarButtonOptions} opts
+     * @deprecated you can now create/modify launchers in the top-left Menu -> Configure Launchbar
+     *             for special needs there's also backend API's createOrUpdateLauncher()
+     * @param {AddButtonToToolbarOptions} opts
      */
-    this.addButtonToToolbar = opts => {
-        const buttonId = "toolbar-button-" + opts.title.replace(/\s/g, "-");
+    this.addButtonToToolbar = async opts => {
+        console.warn("api.addButtonToToolbar() has been deprecated since v0.58 and may be removed in the future. Use  Menu -> Configure Launchbar to create/update launchers instead.");
 
-        let button;
-        if (utils.isMobile()) {
-            $('#plugin-buttons-placeholder').remove();
-            button = $('<a class="dropdown-item" href="#">')
-                .on('click', () => {
-                    setTimeout(() => $pluginButtons.dropdown('hide'), 0);
-                });
+        const {action, ...reqBody} = opts;
+        reqBody.action = action.toString();
 
-            if (opts.icon) {
-                button.append($("<span>").addClass("bx bx-" + opts.icon))
-                    .append("&nbsp;");
-            }
-
-            button.append($("<span>").text(opts.title));
-        } else {
-            button = $('<span class="button-widget icon-action bx" data-toggle="tooltip" title="" data-placement="right"></span>')
-                .addClass("bx bx-" + (opts.icon || "question-mark"));
-
-            button.attr("title", opts.title);
-            button.tooltip({html: true});
-        }
-
-        button = button.on('click', opts.action);
-
-        button.attr('id', buttonId);
-
-        if ($("#" + buttonId).replaceWith(button).length === 0) {
-            $pluginButtons.append(button);
-        }
-
-        if (opts.shortcut) {
-            utils.bindGlobalShortcut(opts.shortcut, opts.action);
-
-            button.attr("title", "Shortcut " + opts.shortcut);
-        }
+        await server.put('special-notes/api-script-launcher', reqBody);
     };
 
     function prepareParams(params) {
@@ -182,7 +156,7 @@ function FrontendScriptApi(startNote, currentNote, originEntity = null, $contain
 
         return params.map(p => {
             if (typeof p === "function") {
-                return "!@#Function: " + p.toString();
+                return `!@#Function: ${p.toString()}`;
             }
             else {
                 return p;
@@ -218,7 +192,7 @@ function FrontendScriptApi(startNote, currentNote, originEntity = null, $contain
             return ret.executionResult;
         }
         else {
-            throw new Error("server error: " + ret.error);
+            throw new Error(`server error: ${ret.error}`);
         }
     };
 
@@ -566,8 +540,10 @@ function FrontendScriptApi(startNote, currentNote, originEntity = null, $contain
      * @method
      * @param {string} keyboardShortcut - e.g. "ctrl+shift+a"
      * @param {function} handler
+     * @param {string} [namespace] - specify namespace of the handler for the cases where call for bind may be repeated.
+     *                               If a handler with this ID exists, it's replaced by the new handler.
      */
-    this.bindGlobalShortcut = utils.bindGlobalShortcut;
+    this.bindGlobalShortcut = shortcutService.bindGlobalShortcut;
 
     /**
      * Trilium runs in backend and frontend process, when something is changed on the backend from script,
@@ -607,7 +583,7 @@ function FrontendScriptApi(startNote, currentNote, originEntity = null, $contain
     this.log = message => {
         const {noteId} = this.startNote;
 
-        message = utils.now() + ": " + message;
+        message = `${utils.now()}: ${message}`;
 
         console.log(`Script ${noteId}: ${message}`);
 

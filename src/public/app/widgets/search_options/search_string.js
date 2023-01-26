@@ -1,7 +1,7 @@
 import AbstractSearchOption from "./abstract_search_option.js";
-import utils from "../../services/utils.js";
 import SpacedUpdate from "../../services/spaced_update.js";
 import server from "../../services/server.js";
+import shortcutService from "../../services/shortcuts.js";
 
 const TPL = `
 <tr>
@@ -45,7 +45,7 @@ export default class SearchString extends AbstractSearchOption {
         this.$searchString = $option.find('.search-string');
         this.$searchString.on('input', () => this.spacedUpdate.scheduleUpdate());
 
-        utils.bindElShortcut(this.$searchString, 'return', async () => {
+        shortcutService.bindElShortcut(this.$searchString, 'return', async () => {
             // this also in effect disallows new lines in query string.
             // on one hand this makes sense since search string is a label
             // on the other hand it could be nice for structuring long search string. It's probably a niche case though.
@@ -61,7 +61,7 @@ export default class SearchString extends AbstractSearchOption {
 
             if (this.note.title.startsWith('Search: ')) {
                 await server.put(`notes/${this.note.noteId}/title`, {
-                    title: 'Search: ' + (searchString.length < 30 ? searchString : `${searchString.substr(0, 30)}…`)
+                    title: `Search: ${searchString.length < 30 ? searchString : `${searchString.substr(0, 30)}…`}`
                 });
             }
         }, 1000);
@@ -69,6 +69,18 @@ export default class SearchString extends AbstractSearchOption {
         this.$searchString.val(this.note.getLabelValue('searchString'));
 
         return $option;
+    }
+
+    showSearchErrorEvent({error}) {
+        this.$searchString.tooltip({
+            trigger: 'manual',
+            title: `Search error: ${error}`,
+            placement: 'bottom'
+        });
+
+        this.$searchString.tooltip("show");
+
+        setTimeout(() => this.$searchString.tooltip("dispose"), 4000);
     }
 
     focusOnSearchDefinitionEvent() {

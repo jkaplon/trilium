@@ -4,6 +4,8 @@ const imageService = require('../../services/image');
 const becca = require('../../becca/becca');
 const RESOURCE_DIR = require('../../services/resource_dir').RESOURCE_DIR;
 const fs = require('fs');
+const ValidationError = require("../../errors/validation_error");
+const NotFoundError = require("../../errors/not_found_error");
 
 function returnImage(req, res) {
     const image = becca.getNote(req.params.noteId);
@@ -16,7 +18,7 @@ function returnImage(req, res) {
     }
     else if (image.isDeleted || image.data === null) {
         res.set('Content-Type', 'image/png');
-        return res.send(fs.readFileSync(RESOURCE_DIR + '/db/image-deleted.png'));
+        return res.send(fs.readFileSync(`${RESOURCE_DIR}/db/image-deleted.png`));
     }
 
     /**
@@ -51,11 +53,11 @@ function uploadImage(req) {
     const note = becca.getNote(noteId);
 
     if (!note) {
-        return [404, `Note ${noteId} doesn't exist.`];
+        throw new NotFoundError(`Note '${noteId}' doesn't exist.`);
     }
 
     if (!["image/png", "image/jpg", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"].includes(file.mimetype)) {
-        return [400, "Unknown image type: " + file.mimetype];
+        throw new ValidationError(`Unknown image type: ${file.mimetype}`);
     }
 
     const {url} = imageService.saveImage(noteId, file.buffer, file.originalname, true, true);
@@ -73,13 +75,13 @@ function updateImage(req) {
     const note = becca.getNote(noteId);
 
     if (!note) {
-        return [404, `Note ${noteId} doesn't exist.`];
+        throw new NotFoundError(`Note '${noteId}' doesn't exist.`);
     }
 
     if (!["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"].includes(file.mimetype)) {
         return {
             uploaded: false,
-            message: "Unknown image type: " + file.mimetype
+            message: `Unknown image type: ${file.mimetype}`
         };
     }
 

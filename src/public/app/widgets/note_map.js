@@ -2,9 +2,12 @@ import libraryLoader from "../services/library_loader.js";
 import server from "../services/server.js";
 import attributeService from "../services/attributes.js";
 import hoistedNoteService from "../services/hoisted_note.js";
-import appContext from "../services/app_context.js";
+import appContext from "../components/app_context.js";
 import NoteContextAwareWidget from "./note_context_aware_widget.js";
-import linkContextMenuService from "../services/link_context_menu.js";
+import linkContextMenuService from "../menus/link_context_menu.js";
+import utils from "../services/utils.js";
+
+const esc = utils.escapeHtml;
 
 const TPL = `<div class="note-map-widget" style="position: relative;">
     <style>
@@ -16,13 +19,13 @@ const TPL = `<div class="note-map-widget" style="position: relative;">
         .map-type-switcher {
             position: absolute; 
             top: 10px; 
-            right: 10px; 
-            background-color: var(--accented-background-color);
+            left: 10px; 
             z-index: 10; /* should be below dropdown (note actions) */
         }
         
-        .map-type-switcher .bx {
-            font-size: 120%;
+        .map-type-switcher button.bx {
+            font-size: 130%;
+            padding: 1px 10px 1px 10px;
         }
     </style>
     
@@ -94,15 +97,15 @@ export default class NoteMapWidget extends NoteContextAwareWidget {
             .onZoom(zoom => this.setZoomLevel(zoom.k))
             .d3AlphaDecay(0.01)
             .d3VelocityDecay(0.08)
-            .nodeCanvasObject((node, ctx) => this.paintNode(node, this.stringToColor(node.type), ctx))
-            .nodePointerAreaPaint((node, ctx) => this.paintNode(node, this.stringToColor(node.type), ctx))
+            .nodeCanvasObject((node, ctx) => this.paintNode(node, this.getColorForNode(node), ctx))
+            .nodePointerAreaPaint((node, ctx) => this.paintNode(node, this.getColorForNode(node), ctx))
             .nodePointerAreaPaint((node, color, ctx) => {
                 ctx.fillStyle = color;
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, this.noteIdToSizeMap[node.id], 0, 2 * Math.PI, false);
                 ctx.fill();
             })
-            .nodeLabel(node => node.name)
+            .nodeLabel(node => esc(node.name))
             .maxZoom(7)
             .warmupTicks(30)
             .linkDirectionalArrowLength(5)
@@ -110,11 +113,11 @@ export default class NoteMapWidget extends NoteContextAwareWidget {
             .linkWidth(1)
             .linkColor(() => this.css.mutedTextColor)
             .onNodeClick(node => appContext.tabManager.getActiveContext().setNote(node.id))
-            .onNodeRightClick((node, e) => linkContextMenuService.openContextMenu(node.id, e));
+            .onNodeRightClick((node, e) => linkContextMenuService.openContextMenu(node.id, null, e));
 
         if (this.mapType === 'link') {
             this.graph
-                .linkLabel(l => `${l.source.name} - <strong>${l.name}</strong> - ${l.target.name}`)
+                .linkLabel(l => `${esc(l.source.name)} - <strong>${esc(l.name)}</strong> - ${esc(l.target.name)}`)
                 .linkCanvasObject((link, ctx) => this.paintLink(link, ctx))
                 .linkCanvasObjectMode(() => "after");
         }
@@ -151,9 +154,19 @@ export default class NoteMapWidget extends NoteContextAwareWidget {
         return mapRootNoteId;
     }
 
-    stringToColor(str) {
+    getColorForNode(node) {
+        if (node.color) {
+            return node.color;
+        } else if (this.widgetMode === 'ribbon' && node.id === this.noteId) {
+            return 'red'; // subtree root mark as red
+        } else {
+            return this.generateColorFromString(node.type);
+        }
+    }
+
+    generateColorFromString(str) {
         if (this.themeStyle === "dark") {
-            str = "0" + str; // magic lightening modifier
+            str = `0${str}`; // magic lightening modifier
         }
 
         let hash = 0;
@@ -165,7 +178,7 @@ export default class NoteMapWidget extends NoteContextAwareWidget {
         for (let i = 0; i < 3; i++) {
             const value = (hash >> (i * 8)) & 0xFF;
 
-            color += ('00' + value.toString(16)).substr(-2);
+            color += (`00${value.toString(16)}`).substr(-2);
         }
         return color;
     }
@@ -185,7 +198,7 @@ export default class NoteMapWidget extends NoteContextAwareWidget {
         const {x, y} = node;
         const size = this.noteIdToSizeMap[node.id];
 
-        ctx.fillStyle = (this.widgetMode === 'ribbon' && node.id === this.noteId) ? 'red' : color;
+        ctx.fillStyle = color;
         ctx.beginPath();
         ctx.arc(x, y, size, 0, 2 * Math.PI, false);
         ctx.fill();
@@ -199,14 +212,14 @@ export default class NoteMapWidget extends NoteContextAwareWidget {
         }
 
         ctx.fillStyle = this.css.textColor;
-        ctx.font = size + 'px ' + this.css.fontFamily;
+        ctx.font = `${size}px ${this.css.fontFamily}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
         let title = node.name;
 
         if (title.length > 15) {
-            title = title.substr(0, 15) + "...";
+            title = `${title.substr(0, 15)}...`;
         }
 
         ctx.fillText(title, x, y + Math.round(size * 1.5));
@@ -217,7 +230,7 @@ export default class NoteMapWidget extends NoteContextAwareWidget {
             return;
         }
 
-        ctx.font = '3px ' + this.css.fontFamily;
+        ctx.font = `3px ${this.css.fontFamily}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = this.css.mutedTextColor;
@@ -253,10 +266,11 @@ export default class NoteMapWidget extends NoteContextAwareWidget {
 
         const links = this.getGroupedLinks(resp.links);
 
-        this.nodes = resp.notes.map(([noteId, title, type]) => ({
+        this.nodes = resp.notes.map(([noteId, title, type, color]) => ({
             id: noteId,
             name: title,
             type: type,
+            color: color
         }));
 
         return {

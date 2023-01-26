@@ -2,7 +2,7 @@ import toastService from "./toast.js";
 import server from "./server.js";
 import ws from "./ws.js";
 import utils from "./utils.js";
-import appContext from "./app_context.js";
+import appContext from "../components/app_context.js";
 
 export async function uploadFiles(parentNoteId, files, options) {
     if (files.length === 0) {
@@ -26,14 +26,14 @@ export async function uploadFiles(parentNoteId, files, options) {
         }
 
         ({noteId} = await $.ajax({
-            url: baseApiUrl + 'notes/' + parentNoteId + '/import',
+            url: `${baseApiUrl}notes/${parentNoteId}/import`,
             headers: await server.getHeaders(),
             data: formData,
             dataType: 'json',
             type: 'POST',
             timeout: 60 * 60 * 1000,
             error: function(xhr) {
-                toastService.showError("Import failed: " + xhr.responseText);
+                toastService.showError(`Import failed: ${xhr.responseText}`);
             },
             contentType: false, // NEEDED, DON'T REMOVE THIS
             processData: false, // NEEDED, DON'T REMOVE THIS
@@ -59,7 +59,7 @@ ws.subscribeToMessages(async message => {
         toastService.closePersistent(message.taskId);
         toastService.showError(message.message);
     } else if (message.type === 'taskProgressCount') {
-        toastService.showPersistent(makeToast(message.taskId, "Import in progress: " + message.progressCount));
+        toastService.showPersistent(makeToast(message.taskId, `Import in progress: ${message.progressCount}`));
     } else if (message.type === 'taskSucceeded') {
         const toast = makeToast(message.taskId, "Import finished successfully.");
         toast.closeAfter = 5000;

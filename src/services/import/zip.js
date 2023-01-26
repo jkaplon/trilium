@@ -39,6 +39,11 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
             return "";
         }
 
+        if (origNoteId === 'root' || origNoteId.startsWith("_")) {
+            // these "named" noteIds don't differ between Trilium instances
+            return origNoteId;
+        }
+
         if (!noteIdMap[origNoteId]) {
             noteIdMap[origNoteId] = utils.newEntityId();
         }
@@ -135,15 +140,15 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
 
             if (attr.type === 'label-definition') {
                 attr.type = 'label';
-                attr.name = 'label:' + attr.name;
+                attr.name = `label:${attr.name}`;
             }
             else if (attr.type === 'relation-definition') {
                 attr.type = 'label';
-                attr.name = 'relation:' + attr.name;
+                attr.name = `relation:${attr.name}`;
             }
 
             if (!attributeService.isAttributeType(attr.type)) {
-                log.error("Unrecognized attribute type " + attr.type);
+                log.error(`Unrecognized attribute type ${attr.type}`);
                 continue;
             }
 
@@ -157,7 +162,7 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
             }
 
             if (taskContext.data.safeImport && attributeService.isAttributeDangerous(attr.type, attr.name)) {
-                attr.name = 'disabled:' + attr.name;
+                attr.name = `disabled:${attr.name}`;
             }
 
             if (taskContext.data.safeImport) {
@@ -187,7 +192,7 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
             title: noteTitle,
             content: '',
             noteId: noteId,
-            type: noteMeta ? noteMeta.type : 'text',
+            type: resolveNoteType(noteMeta?.type),
             mime: noteMeta ? noteMeta.mime : 'text/html',
             prefix: noteMeta ? noteMeta.prefix : '',
             isExpanded: noteMeta ? noteMeta.isExpanded : false,
@@ -223,9 +228,16 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
             absUrl = '';
         }
 
-        absUrl += (absUrl.length > 0 ? '/' : '') + url;
+        absUrl += `${absUrl.length > 0 ? '/' : ''}${url}`;
 
         const {noteMeta} = getMeta(absUrl);
+
+        if (!noteMeta) {
+            log.info(`Could not find note meta for URL '${absUrl}'.`);
+
+            return null;
+        }
+
         const targetNoteId = getNoteId(noteMeta, absUrl);
         return targetNoteId;
     }
@@ -258,11 +270,13 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
             return;
         }
 
-        const {type, mime} = noteMeta ? noteMeta : detectFileTypeAndMime(taskContext, filePath);
+        let {type, mime} = noteMeta ? noteMeta : detectFileTypeAndMime(taskContext, filePath);
 
         if (type !== 'file' && type !== 'image') {
             content = content.toString("UTF-8");
         }
+
+        type = resolveNoteType(type);
 
         if ((noteMeta && noteMeta.format === 'markdown')
             || (!noteMeta && taskContext.data.textImportedAsText && ['text/markdown', 'text/x-markdown'].includes(mime))) {
@@ -305,6 +319,10 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
 
                 const targetNoteId = getNoteIdFromRelativeUrl(url, filePath);
 
+                if (!targetNoteId) {
+                    return match;
+                }
+
                 return `src="api/images/${targetNoteId}/${path.basename(url)}"`;
             });
 
@@ -316,11 +334,15 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
                     return `href="${url}"`;
                 }
 
-                if (isUrlAbsolute(url)) {
+                if (url.startsWith('#') || isUrlAbsolute(url)) {
                     return match;
                 }
 
                 const targetNoteId = getNoteIdFromRelativeUrl(url, filePath);
+
+                if (!targetNoteId) {
+                    return match;
+                }
 
                 return `href="#root/${targetNoteId}"`;
             });
@@ -328,7 +350,13 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
             content = content.replace(/data-note-path="([^"]*)"/g, (match, notePath) => {
                 const noteId = notePath.split("/").pop();
 
-                const targetNoteId = noteIdMap[noteId];
+                let targetNoteId;
+
+                if (noteId === 'root' || noteId.startsWith("_")) { // named noteIds stay identical across instances
+                    targetNoteId = noteId;
+                } else {
+                    targetNoteId = noteIdMap[noteId];
+                }
 
                 return `data-note-path="root/${targetNoteId}"`;
             });
@@ -344,7 +372,7 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
             }
         }
 
-        if (type === 'relation-map' && noteMeta) {
+        if (type === 'relationMap' && noteMeta) {
             const relationMapLinks = (noteMeta.attributes || [])
                 .filter(attr => attr.type === 'relation' && attr.name === 'relationMapLink');
 
@@ -524,12 +552,28 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
             new Attribute(attr).save();
         }
         else {
-            log.info("Relation not imported since target note doesn't exist: " + JSON.stringify(attr));
+            log.info(`Relation not imported since target note doesn't exist: ${JSON.stringify(attr)}`);
         }
     }
 
     return firstNote;
 }
+
+function resolveNoteType(type) {
+    type = type || 'text';
+
+    // BC for ZIPs created in Triliun 0.57 and older
+    if (type === 'relation-map') {
+        type = 'relationMap';
+    } else if (type === 'note-map') {
+        type = 'noteMap';
+    } else if (type === 'web-view') {
+        type = 'webView';
+    }
+
+    return type;
+}
+
 
 module.exports = {
     importZip

@@ -2,7 +2,7 @@ import server from './server.js';
 import protectedSessionHolder from './protected_session_holder.js';
 import toastService from "./toast.js";
 import ws from "./ws.js";
-import appContext from "./app_context.js";
+import appContext from "../components/app_context.js";
 import froca from "./froca.js";
 import utils from "./utils.js";
 import options from "./options.js";
@@ -88,7 +88,7 @@ async function protectNote(noteId, protect, includingSubtree) {
 function makeToast(message, protectingLabel, text) {
     return {
         id: message.taskId,
-        title: protectingLabel + " status",
+        title: `${protectingLabel} status`,
         message: text,
         icon: message.data.protect ? "check-shield" : "shield"
     };
@@ -105,9 +105,9 @@ ws.subscribeToMessages(async message => {
         toastService.closePersistent(message.taskId);
         toastService.showError(message.message);
     } else if (message.type === 'taskProgressCount') {
-        toastService.showPersistent(makeToast(message, protectingLabel,protectingLabel + " in progress: " + message.progressCount));
+        toastService.showPersistent(makeToast(message, protectingLabel,`${protectingLabel} in progress: ${message.progressCount}`));
     } else if (message.type === 'taskSucceeded') {
-        const toast = makeToast(message, protectingLabel, protectingLabel + " finished successfully.");
+        const toast = makeToast(message, protectingLabel, `${protectingLabel} finished successfully.`);
         toast.closeAfter = 3000;
 
         toastService.showPersistent(toast);

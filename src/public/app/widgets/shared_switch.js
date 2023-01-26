@@ -3,11 +3,12 @@ import branchService from "../services/branches.js";
 import server from "../services/server.js";
 import utils from "../services/utils.js";
 import syncService from "../services/sync.js";
-import dialogService from "./dialog.js";
+import dialogService from "../services/dialog.js";
 
 export default class SharedSwitchWidget extends SwitchWidget {
     isEnabled() {
-        return super.isEnabled() && this.noteId !== 'root' && this.noteId !== 'share';
+        return super.isEnabled()
+            && !['root', '_share', '_hidden'].includes(this.noteId);
     }
 
     doRender() {
@@ -24,13 +25,13 @@ export default class SharedSwitchWidget extends SwitchWidget {
     }
 
     async switchOn() {
-        await branchService.cloneNoteToNote(this.noteId, 'share');
+        await branchService.cloneNoteToNote(this.noteId, '_share');
 
         syncService.syncNow(true);
     }
 
     async switchOff() {
-        const shareBranch = this.note.getParentBranches().find(b => b.parentNoteId === 'share');
+        const shareBranch = this.note.getParentBranches().find(b => b.parentNoteId === '_share');
 
         if (!shareBranch) {
             return;
@@ -50,8 +51,8 @@ export default class SharedSwitchWidget extends SwitchWidget {
     }
 
     async refreshWithNote(note) {
-        const isShared = note.hasAncestor('share');
-        const canBeUnshared = isShared && note.getParentBranches().find(b => b.parentNoteId === 'share');
+        const isShared = note.hasAncestor('_share');
+        const canBeUnshared = isShared && note.getParentBranches().find(b => b.parentNoteId === '_share');
         const switchDisabled = isShared && !canBeUnshared;
 
         this.$switchOn.toggle(!isShared);

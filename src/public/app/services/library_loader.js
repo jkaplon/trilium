@@ -94,7 +94,7 @@ async function requireLibrary(library) {
 const loadedScriptPromises = {};
 
 async function requireScript(url) {
-    url = window.glob.assetPath + "/" + url;
+    url = `${window.glob.assetPath}/${url}`;
 
     if (!loadedScriptPromises[url]) {
         loadedScriptPromises[url] = $.ajax({
@@ -114,7 +114,7 @@ async function requireCss(url, prependAssetPath = true) {
 
     if (!cssLinks.some(l => l.endsWith(url))) {
         if (prependAssetPath) {
-            url = window.glob.assetPath + "/" + url;
+            url = `${window.glob.assetPath}/${url}`;
         }
 
         $('head').append($('<link rel="stylesheet" type="text/css" />').attr('href', url));

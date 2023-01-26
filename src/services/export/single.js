@@ -13,7 +13,7 @@ function exportSingleNote(taskContext, branch, format, res) {
     }
 
     if (format !== 'html' && format !== 'markdown') {
-        return [400, 'Unrecognized format ' + format];
+        return [400, `Unrecognized format ${format}`];
     }
 
     let payload, extension, mime;
@@ -23,7 +23,7 @@ function exportSingleNote(taskContext, branch, format, res) {
     if (note.type === 'text') {
         if (format === 'html') {
             if (!content.toLowerCase().includes("<html")) {
-                content = '<html><head><meta charset="utf-8"></head><body>' + content + '</body></html>';
+                content = `<html><head><meta charset="utf-8"></head><body>${content}</body></html>`;
             }
 
             payload = html.prettyPrint(content, {indent_size: 2});
@@ -41,16 +41,16 @@ function exportSingleNote(taskContext, branch, format, res) {
         extension = mimeTypes.extension(note.mime) || 'code';
         mime = note.mime;
     }
-    else if (note.type === 'relation-map' || note.type === 'canvas' || note.type === 'search') {
+    else if (note.type === 'relationMap' || note.type === 'canvas' || note.type === 'search') {
         payload = content;
         extension = 'json';
         mime = 'application/json';
     }
 
-    const filename = note.title + "." + extension;
+    const filename = `${note.title}.${extension}`;
 
     res.setHeader('Content-Disposition', utils.getContentDisposition(filename));
-    res.setHeader('Content-Type', mime + '; charset=UTF-8');
+    res.setHeader('Content-Type', `${mime}; charset=UTF-8`);
 
     res.send(payload);
 

@@ -13,7 +13,7 @@ import OrderBy from "../search_options/order_by.js";
 import SearchScript from "../search_options/search_script.js";
 import Limit from "../search_options/limit.js";
 import Debug from "../search_options/debug.js";
-import appContext from "../../services/app_context.js";
+import appContext from "../../components/app_context.js";
 import bulkActionService from "../../services/bulk_action.js";
 
 const TPL = `
@@ -244,13 +244,17 @@ export default class SearchDefinitionWidget extends NoteContextAwareWidget {
 
             await appContext.tabManager.getActiveContext().setNote(notePath);
 
-            toastService.showMessage("Search note has been saved into " + await treeService.getNotePathTitle(notePath));
+            toastService.showMessage(`Search note has been saved into ${await treeService.getNotePathTitle(notePath)}`);
         });
     }
 
     async refreshResultsCommand() {
         try {
-            await froca.loadSearchNote(this.noteId);
+            const {error} = await froca.loadSearchNote(this.noteId);
+
+            if (error) {
+                this.handleEvent('showSearchError', { error });
+            }
         }
         catch (e) {
             toastService.showError(e.message);
@@ -266,7 +270,7 @@ export default class SearchDefinitionWidget extends NoteContextAwareWidget {
     async refreshWithNote(note) {
         this.$component.show();
 
-        this.$saveToNoteButton.toggle(!note.getAllNotePaths().find(notePathArr => !notePathArr.includes("hidden")));
+        this.$saveToNoteButton.toggle(note.isHiddenCompletely());
 
         this.$searchOptions.empty();
 
@@ -291,7 +295,7 @@ export default class SearchDefinitionWidget extends NoteContextAwareWidget {
             .empty()
             .append(...actions.map(action => action.render()));
 
-        this.$searchAndExecuteButton.css('visibility', actions.length > 0 ? 'visible' : 'hidden');
+        this.$searchAndExecuteButton.css('visibility', actions.length > 0 ? 'visible' : '_hidden');
     }
 
     getContent() {

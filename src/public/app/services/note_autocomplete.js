@@ -1,5 +1,5 @@
 import server from "./server.js";
-import appContext from "./app_context.js";
+import appContext from "../components/app_context.js";
 import utils from './utils.js';
 import noteCreateService from './note_create.js';
 import treeService from './tree.js';
@@ -17,9 +17,9 @@ async function autocompleteSourceForCKEditor(queryText) {
                 return {
                     action: row.action,
                     noteTitle: row.noteTitle,
-                    id: '@' + row.notePathTitle,
+                    id: `@${row.notePathTitle}`,
                     name: row.notePathTitle,
-                    link: '#' + row.notePath,
+                    link: `#${row.notePath}`,
                     notePath: row.notePath,
                     highlightedNotePathTitle: row.highlightedNotePathTitle
                 }
@@ -33,9 +33,7 @@ async function autocompleteSourceForCKEditor(queryText) {
 async function autocompleteSource(term, cb, options = {}) {
     const activeNoteId = appContext.tabManager.getActiveContextNoteId();
 
-    let results = await server.get('autocomplete'
-            + '?query=' + encodeURIComponent(term)
-            + '&activeNoteId=' + activeNoteId);
+    let results = await server.get(`autocomplete?query=${encodeURIComponent(term)}&activeNoteId=${activeNoteId}`);
 
     if (term.trim().length >= 1 && options.allowCreatingNotes) {
         results = [
@@ -232,6 +230,10 @@ function init() {
 
     $.fn.getSelectedNoteId = function () {
         const notePath = $(this).getSelectedNotePath();
+        if (!notePath) {
+            return null;
+        }
+
         const chunks = notePath.split('/');
 
         return chunks.length >= 1 ? chunks[chunks.length - 1] : null;

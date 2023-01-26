@@ -1,6 +1,7 @@
-import appContext from "./app_context.js";
+import appContext from "../components/app_context.js";
 import treeService from "./tree.js";
-import dialogService from "../widgets/dialog.js";
+import dialogService from "./dialog.js";
+import froca from "./froca.js";
 
 function getHoistedNoteId() {
     const activeNoteContext = appContext.tabManager.getActiveContext();
@@ -26,18 +27,35 @@ function isHoistedNode(node) {
         || node.data.noteId === getHoistedNoteId();
 }
 
+async function isHoistedInHiddenSubtree() {
+    const hoistedNoteId = getHoistedNoteId();
+
+    if (hoistedNoteId === 'root') {
+        return false;
+    }
+
+    const hoistedNote = await froca.getNote(hoistedNoteId);
+    const hoistedNotePath = treeService.getSomeNotePath(hoistedNote);
+
+    return treeService.isNotePathInHiddenSubtree(hoistedNotePath);
+}
+
 async function checkNoteAccess(notePath, noteContext) {
     const resolvedNotePath = await treeService.resolveNotePath(notePath, noteContext.hoistedNoteId);
 
     if (!resolvedNotePath) {
-        console.log("Cannot activate " + notePath);
+        console.log(`Cannot activate ${notePath}`);
         return false;
     }
 
     const hoistedNoteId = noteContext.hoistedNoteId;
 
-    if (!resolvedNotePath.includes(hoistedNoteId) && !resolvedNotePath.includes("hidden")) {
-        if (!await dialogService.confirm("Requested note is outside of hoisted note subtree and you must unhoist to access the note. Do you want to proceed with unhoisting?")) {
+    if (!resolvedNotePath.includes(hoistedNoteId) && !resolvedNotePath.includes('_hidden')) {
+        const requestedNote = await froca.getNote(treeService.getNoteIdFromNotePath(resolvedNotePath));
+        const hoistedNote = await froca.getNote(hoistedNoteId);
+
+        if (!hoistedNote.hasAncestor('_hidden')
+            && !await dialogService.confirm(`Requested note '${requestedNote.title}' is outside of hoisted note '${hoistedNote.title}' subtree and you must unhoist to access the note. Do you want to proceed with unhoisting?`)) {
             return false;
         }
 
@@ -53,5 +71,6 @@ export default {
     unhoist,
     isTopLevelNode,
     isHoistedNode,
-    checkNoteAccess
+    checkNoteAccess,
+    isHoistedInHiddenSubtree
 }

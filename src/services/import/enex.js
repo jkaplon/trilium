@@ -8,11 +8,17 @@ const noteService = require("../notes");
 const imageService = require("../image");
 const protectedSessionService = require('../protected_session');
 const htmlSanitizer = require("../html_sanitizer");
-const attributeService = require("../attributes");
+const {sanitizeAttributeName} = require("../sanitize_attribute_name.js");
 
-// date format is e.g. 20181121T193703Z
+/**
+ * date format is e.g. 20181121T193703Z or 2013-04-14T16:19:00.000Z (Mac evernote, see #3496)
+ * @returns trilium date format, e.g. 2013-04-14 16:19:00.000Z
+ */
 function parseDate(text) {
-    // insert - and : to make it ISO format
+    // convert ISO format to the "20181121T193703Z" format
+    text = text.replace(/[-:]/g, "");
+
+    // insert - and : to convert it to trilium format
     text = text.substr(0, 4) + "-" + text.substr(4, 2) + "-" + text.substr(6, 2)
         + " " + text.substr(9, 2) + ":" + text.substr(11, 2) + ":" + text.substr(13, 2) + ".000Z";
 
@@ -70,8 +76,8 @@ function importEnex(taskContext, file, parentNote) {
         content = content.replace(/<\/ol>\s*<li>/g, "</ol></li><li>");
 
         // Replace en-todo with unicode ballot box
-        content = content.replace(/<en-todo\s+checked="true"\/>/g, "\u2611 ");
-        content = content.replace(/<en-todo(\s+checked="false")?\/>/g, "\u2610 ");
+        content = content.replace(/<en-todo\s+checked="true"\s*\/>/g, "\u2611 ");
+        content = content.replace(/<en-todo(\s+checked="false")?\s*\/>/g, "\u2610 ");
 
         // Replace OneNote converted checkboxes with unicode ballot box based
         // on known hash of checkboxes for regular, p1, and p2 checkboxes
@@ -101,7 +107,7 @@ function importEnex(taskContext, file, parentNote) {
     saxStream.on("error", e => {
         // unhandled errors will throw, since this is a proper node
         // event emitter.
-        log.error("error when parsing ENEX file: " + e);
+        log.error(`error when parsing ENEX file: ${e}`);
         // clear the error
         this._parser.error = null;
         this._parser.resume();
@@ -115,10 +121,10 @@ function importEnex(taskContext, file, parentNote) {
             let labelName = currentTag;
 
             if (labelName === 'source-url') {
-                labelName = 'sourceUrl';
+                labelName = 'pageUrl';
             }
 
-            labelName = attributeService.sanitizeAttributeName(labelName);
+            labelName = sanitizeAttributeName(labelName);
 
             note.attributes.push({
                 type: 'label',
@@ -139,7 +145,7 @@ function importEnex(taskContext, file, parentNote) {
             else if (currentTag === 'source-url') {
                 resource.attributes.push({
                     type: 'label',
-                    name: 'sourceUrl',
+                    name: 'pageUrl',
                     value: text
                 });
             }
@@ -148,7 +154,10 @@ function importEnex(taskContext, file, parentNote) {
             if (currentTag === 'data') {
                 text = text.replace(/\s/g, '');
 
-                resource.content = utils.fromBase64(text);
+                // resource can be chunked into multiple events: https://github.com/zadam/trilium/issues/3424
+                // it would probably make sense to do this in a more global way since it can in theory affect any field,
+                // not just data
+                resource.content = (resource.content || "") + text;
             }
             else if (currentTag === 'mime') {
                 resource.mime = text.toLowerCase();
@@ -164,7 +173,7 @@ function importEnex(taskContext, file, parentNote) {
             } else if (currentTag === 'tag') {
                 note.attributes.push({
                     type: 'label',
-                    name: attributeService.sanitizeAttributeName(text),
+                    name: sanitizeAttributeName(text),
                     value: ''
                 })
             }
@@ -246,6 +255,8 @@ function importEnex(taskContext, file, parentNote) {
                 continue;
             }
 
+            resource.content = utils.fromBase64(resource.content);
+
             const hash = utils.md5(resource.content);
 
             // skip all checked/unchecked checkboxes from OneNote
@@ -258,7 +269,7 @@ function importEnex(taskContext, file, parentNote) {
                 continue;
             }
 
-            const mediaRegex = new RegExp(`<en-media hash="${hash}"[^>]*>`, 'g');
+            const mediaRegex = new RegExp(`<en-media [^>]*hash="${hash}"[^>]*>`, 'g');
 
             resource.mime = resource.mime || "application/octet-stream";
 
@@ -311,7 +322,7 @@ function importEnex(taskContext, file, parentNote) {
                         content += imageLink;
                     }
                 } catch (e) {
-                    log.error("error when saving image from ENEX file: " + e);
+                    log.error(`error when saving image from ENEX file: ${e}`);
                     createFileNote();
                 }
             } else {

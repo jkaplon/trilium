@@ -2,23 +2,28 @@ const attributeService = require("./attributes");
 const dateNoteService = require("./date_notes");
 const becca = require("../becca/becca");
 const noteService = require("./notes");
-const cls = require("./cls");
 const dateUtils = require("./date_utils");
+const log = require("./log");
+const hiddenSubtreeService = require("./hidden_subtree");
+const hoistedNoteService = require("./hoisted_note");
+const searchService = require("./search/services/search");
+const SearchContext = require("./search/search_context");
+const {LBTPL_NOTE_LAUNCHER, LBTPL_CUSTOM_WIDGET, LBTPL_SPACER, LBTPL_SCRIPT} = require("./hidden_subtree");
 
 function getInboxNote(date) {
-    const hoistedNote = getHoistedNote();
+    const workspaceNote = hoistedNoteService.getWorkspaceNote();
 
     let inbox;
 
-    if (!hoistedNote.isRoot()) {
-        inbox = hoistedNote.searchNoteInSubtree('#hoistedInbox');
+    if (!workspaceNote.isRoot()) {
+        inbox = workspaceNote.searchNoteInSubtree('#workspaceInbox');
 
         if (!inbox) {
-            inbox = hoistedNote.searchNoteInSubtree('#inbox');
+            inbox = workspaceNote.searchNoteInSubtree('#inbox');
         }
 
         if (!inbox) {
-            inbox = hoistedNote;
+            inbox = workspaceNote;
         }
     }
     else {
@@ -29,104 +34,17 @@ function getInboxNote(date) {
     return inbox;
 }
 
-function getHiddenRoot() {
-    let hidden = becca.getNote('hidden');
-
-    if (!hidden) {
-        hidden = noteService.createNewNote({
-            branchId: 'hidden',
-            noteId: 'hidden',
-            title: 'hidden',
-            type: 'text',
-            content: '',
-            parentNoteId: 'root'
-        }).note;
-
-        // isInheritable: false means that this notePath is automatically not preffered but at the same time
-        // the flag is not inherited to the children
-        hidden.addLabel('archived', "", false);
-        hidden.addLabel('excludeFromNoteMap', "", true);
-    }
-
-    return hidden;
-}
-
-function getSearchRoot() {
-    let searchRoot = becca.getNote('search');
-
-    if (!searchRoot) {
-        searchRoot = noteService.createNewNote({
-            noteId: 'search',
-            title: 'search',
-            type: 'text',
-            content: '',
-            parentNoteId: getHiddenRoot().noteId
-        }).note;
-    }
-
-    return searchRoot;
-}
-
-function getSinglesNoteRoot() {
-    let singlesNoteRoot = becca.getNote('singles');
-
-    if (!singlesNoteRoot) {
-        singlesNoteRoot = noteService.createNewNote({
-            noteId: 'singles',
-            title: 'singles',
-            type: 'text',
-            content: '',
-            parentNoteId: getHiddenRoot().noteId
-        }).note;
-    }
-
-    return singlesNoteRoot;
-}
-
-function getGlobalNoteMap() {
-    let globalNoteMap = becca.getNote('globalnotemap');
-
-    if (!globalNoteMap) {
-        globalNoteMap = noteService.createNewNote({
-            noteId: 'globalnotemap',
-            title: 'Global Note Map',
-            type: 'note-map',
-            content: '',
-            parentNoteId: getSinglesNoteRoot().noteId
-        }).note;
-
-        globalNoteMap.addLabel('mapRootNoteId', 'hoisted');
-    }
-
-    return globalNoteMap;
-}
-
-function getSqlConsoleRoot() {
-    let sqlConsoleRoot = becca.getNote('sqlconsole');
-
-    if (!sqlConsoleRoot) {
-        sqlConsoleRoot = noteService.createNewNote({
-            noteId: 'sqlconsole',
-            title: 'SQL Console',
-            type: 'text',
-            content: '',
-            parentNoteId: getHiddenRoot().noteId
-        }).note;
-    }
-
-    return sqlConsoleRoot;
-}
-
 function createSqlConsole() {
     const {note} = noteService.createNewNote({
-        parentNoteId: getSqlConsoleRoot().noteId,
-        title: 'SQL Console',
+        parentNoteId: getMonthlyParentNoteId('_sqlConsole', 'sqlConsole'),
+        title: 'SQL Console - ' + dateUtils.localNowDate(),
         content: "SELECT title, isDeleted, isProtected FROM notes WHERE noteId = ''\n\n\n\n",
         type: 'code',
         mime: 'text/x-sqlite;schema=trilium'
     });
 
-    note.setLabel("sqlConsole", dateUtils.localNowDate());
+    note.setLabel('iconClass', 'bx bx-data');
+    note.setLabel('keepCurrentHoisting');
 
     return note;
 }
@@ -142,7 +60,7 @@ function saveSqlConsole(sqlConsoleNoteId) {
     const result = sqlConsoleNote.cloneTo(sqlConsoleHome.noteId);
 
     for (const parentBranch of sqlConsoleNote.getParentBranches()) {
-        if (parentBranch.parentNote.hasAncestor("hidden")) {
+        if (parentBranch.parentNote.hasAncestor('_hidden')) {
             parentBranch.markAsDeleted();
         }
     }
@@ -152,14 +70,15 @@ function saveSqlConsole(sqlConsoleNoteId) {
 
 function createSearchNote(searchString, ancestorNoteId) {
     const {note} = noteService.createNewNote({
-        parentNoteId: getSearchRoot().noteId,
-        title: 'Search: ' + searchString,
+        parentNoteId: getMonthlyParentNoteId('_search', 'search'),
+        title: `Search: ${searchString}`,
         content: "",
         type: 'search',
         mime: 'application/json'
     });
 
     note.setLabel('searchString', searchString);
+    note.setLabel('keepCurrentHoisting');
 
     if (ancestorNoteId) {
         note.setRelation('ancestor', ancestorNoteId);
@@ -169,16 +88,16 @@ function createSearchNote(searchString, ancestorNoteId) {
 }
 
 function getSearchHome() {
-    const hoistedNote = getHoistedNote();
+    const workspaceNote = hoistedNoteService.getWorkspaceNote();
 
-    if (!hoistedNote.isRoot()) {
-        return hoistedNote.searchNoteInSubtree('#hoistedSearchHome')
-            || hoistedNote.searchNoteInSubtree('#searchHome')
-            || hoistedNote;
+    if (!workspaceNote.isRoot()) {
+        return workspaceNote.searchNoteInSubtree('#workspaceSearchHome')
+            || workspaceNote.searchNoteInSubtree('#searchHome')
+            || workspaceNote;
     } else {
         const today = dateUtils.localNowDate();
 
-        return hoistedNote.searchNoteInSubtree('#searchHome')
+        return workspaceNote.searchNoteInSubtree('#searchHome')
             || dateNoteService.getDayNote(today);
     }
 }
@@ -190,7 +109,7 @@ function saveSearchNote(searchNoteId) {
     const result = searchNote.cloneTo(searchHome.noteId);
 
     for (const parentBranch of searchNote.getParentBranches()) {
-        if (parentBranch.parentNote.hasAncestor("hidden")) {
+        if (parentBranch.parentNote.hasAncestor('_hidden')) {
             parentBranch.markAsDeleted();
         }
     }
@@ -198,56 +117,151 @@ function saveSearchNote(searchNoteId) {
     return result;
 }
 
-function getHoistedNote() {
-    return becca.getNote(cls.getHoistedNoteId());
-}
+function getMonthlyParentNoteId(rootNoteId, prefix) {
+    const month = dateUtils.localNowDate().substring(0, 7);
+    const labelName = `${prefix}MonthNote`;
 
-function getShareRoot() {
-    let shareRoot = becca.getNote('share');
+    let monthNote = searchService.findFirstNoteWithQuery(`#${labelName}="${month}"`,
+        new SearchContext({ancestorNoteId: rootNoteId}));
 
-    if (!shareRoot) {
-        shareRoot = noteService.createNewNote({
-            branchId: 'share',
-            noteId: 'share',
-            title: 'Shared notes',
-            type: 'text',
+    if (!monthNote) {
+        monthNote = noteService.createNewNote({
+            parentNoteId: rootNoteId,
+            title: month,
             content: '',
-            parentNoteId: 'root'
-        }).note;
+            isProtected: false,
+            type: 'book'
+        }).note
+
+        monthNote.addLabel(labelName, month);
     }
 
-    return shareRoot;
+    return monthNote.noteId;
 }
 
-function getBulkActionNote() {
-    let bulkActionNote = becca.getNote('bulkaction');
+function createScriptLauncher(parentNoteId, forceNoteId = null) {
+    const note = noteService.createNewNote({
+        noteId: forceNoteId,
+        title: "Script Launcher",
+        type: 'launcher',
+        content: '',
+        parentNoteId: parentNoteId
+    }).note;
 
-    if (!bulkActionNote) {
-        bulkActionNote = noteService.createNewNote({
-            branchId: 'bulkaction',
-            noteId: 'bulkaction',
-            title: 'Bulk action',
-            type: 'text',
+    note.addRelation('template', LBTPL_SCRIPT);
+    return note;
+}
+
+function createLauncher({parentNoteId, launcherType, noteId}) {
+    let note;
+
+    if (launcherType === 'note') {
+        note = noteService.createNewNote({
+            noteId: noteId,
+            title: "Note Launcher",
+            type: 'launcher',
             content: '',
-            parentNoteId: getHiddenRoot().noteId
+            parentNoteId: parentNoteId
         }).note;
+
+        note.addRelation('template', LBTPL_NOTE_LAUNCHER);
+    } else if (launcherType === 'script') {
+        note = createScriptLauncher(parentNoteId, noteId);
+    } else if (launcherType === 'customWidget') {
+        note = noteService.createNewNote({
+            noteId: noteId,
+            title: "Widget Launcher",
+            type: 'launcher',
+            content: '',
+            parentNoteId: parentNoteId
+        }).note;
+
+        note.addRelation('template', LBTPL_CUSTOM_WIDGET);
+    } else if (launcherType === 'spacer') {
+        note = noteService.createNewNote({
+            noteId: noteId,
+            branchId: noteId,
+            title: "Spacer",
+            type: 'launcher',
+            content: '',
+            parentNoteId: parentNoteId
+        }).note;
+
+        note.addRelation('template', LBTPL_SPACER);
+    } else {
+        throw new Error(`Unrecognized launcher type '${launcherType}'`);
     }
 
-    return bulkActionNote;
+    return {
+        success: true,
+        note
+    };
 }
 
-function createMissingSpecialNotes() {
-    getSinglesNoteRoot();
-    getSqlConsoleRoot();
-    getGlobalNoteMap();
-    getBulkActionNote();
-    // share root is not automatically created since it's visible in the tree and many won't need it/use it
+function resetLauncher(noteId) {
+    const note = becca.getNote(noteId);
 
-    const hidden = getHiddenRoot();
-
-    if (!hidden.hasOwnedLabel('excludeFromNoteMap')) {
-        hidden.addLabel('excludeFromNoteMap', "", true);
+    if (note.isLaunchBarConfig()) {
+        if (note) {
+            if (noteId === '_lbRoot') {
+                // deleting hoisted notes are not allowed, so we just reset the children
+                for (const childNote of note.getChildNotes()) {
+                    childNote.deleteNote();
+                }
+            } else {
+                note.deleteNote();
+            }
+        } else {
+            log.info(`Note ${noteId} has not been found and cannot be reset.`);
+        }
+    } else {
+        log.info(`Note ${noteId} is not a resettable launcher note.`);
     }
+
+    // the re-building deleted launchers will be done in handlers
+}
+
+/**
+ * This exists to ease transition into the new launchbar, but it's not meant to be a permanent functionality.
+ * Previously, the launchbar was fixed and the only way to add buttons was through this API, so a lot of buttons have been
+ * created just to fill this user hole.
+ *
+ * Another use case was for script-packages (e.g. demo Task manager) which could this way register automatically/easily
+ * into the launchbar - for this it's recommended to use backend API's createOrUpdateLauncher()
+ */
+function createOrUpdateScriptLauncherFromApi(opts) {
+    if (opts.id && !/^[a-z0-9]+$/i.test(opts.id)) {
+        throw new Error(`Launcher ID can be alphanumeric only, '${opts.id}' given`);
+    }
+
+    const launcherId = opts.id || (`tb_${opts.title.toLowerCase().replace(/[^[a-z0-9]/gi, "")}`);
+
+    if (!opts.title) {
+        throw new Error("Title is mandatory property to create or update a launcher.");
+    }
+
+    const launcherNote = becca.getNote(launcherId)
+        || createScriptLauncher('_lbVisibleLaunchers', launcherId);
+
+    launcherNote.title = opts.title;
+    launcherNote.setContent(`(${opts.action})()`);
+    launcherNote.setLabel('scriptInLauncherContent'); // there's no target note, the script is in the launcher's content
+    launcherNote.mime = 'application/javascript;env=frontend';
+    launcherNote.save();
+
+    if (opts.shortcut) {
+        launcherNote.setLabel('keyboardShortcut', opts.shortcut);
+    } else {
+        launcherNote.removeLabel('keyboardShortcut');
+    }
+
+    if (opts.icon) {
+        launcherNote.setLabel('iconClass', `bx bx-${opts.icon}`);
+    } else {
+        launcherNote.removeLabel('iconClass');
+    }
+
+    return launcherNote;
 }
 
 module.exports = {
@@ -256,7 +270,7 @@ module.exports = {
     saveSqlConsole,
     createSearchNote,
     saveSearchNote,
-    createMissingSpecialNotes,
-    getShareRoot,
-    getBulkActionNote,
+    createLauncher,
+    resetLauncher,
+    createOrUpdateScriptLauncherFromApi
 };

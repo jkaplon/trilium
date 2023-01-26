@@ -9,11 +9,11 @@ function getFullAnonymizationScript() {
     // we want to delete all non-builtin attributes because they can contain sensitive names and values
 // on the other hand builtin/system attrs should not contain any sensitive info
     const builtinAttrNames = BUILTIN_ATTRIBUTES
-        .map(attr => "'" + attr.name + "'").join(', ');
+        .map(attr => `'${attr.name}'`).join(', ');
 
     const anonymizeScript = `
 UPDATE etapi_tokens SET tokenHash = 'API token hash value';
-UPDATE notes SET title = 'title' WHERE title NOT IN ('root', 'hidden', 'share');
+UPDATE notes SET title = 'title' WHERE title NOT IN ('root', '_hidden', '_share');
 UPDATE note_contents SET content = 'text' WHERE content IS NOT NULL;
 UPDATE note_revisions SET title = 'title';
 UPDATE note_revision_contents SET content = 'text' WHERE content IS NOT NULL;

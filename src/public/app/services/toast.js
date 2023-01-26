@@ -16,7 +16,7 @@ function toast(options) {
     $toast.find('.toast-body').text(options.message);
 
     if (options.id) {
-        $toast.attr("id", "toast-" + options.id);
+        $toast.attr("id", `toast-${options.id}`);
     }
 
     $("#toast-container").append($toast);
@@ -34,7 +34,7 @@ function toast(options) {
 }
 
 function showPersistent(options) {
-    let $toast = $("#toast-" + options.id);
+    let $toast = $(`#toast-${options.id}`);
 
     if ($toast.length > 0) {
         $toast.find('.toast-body').html(options.message);
@@ -51,7 +51,7 @@ function showPersistent(options) {
 }
 
 function closePersistent(id) {
-    $("#toast-" + id).remove();
+    $(`#toast-${id}`).remove();
 }
 
 function showMessage(message, delay = 2000) {
@@ -84,6 +84,18 @@ function showError(message, delay = 10000) {
     });
 }
 
+function showErrorTitleAndMessage(title, message, delay = 10000) {
+    console.log(utils.now(), "error: ", message);
+
+    toast({
+        title: title,
+        icon: 'alert',
+        message: message,
+        autohide: true,
+        delay
+    });
+}
+
 function throwError(message) {
     ws.logError(message);
 
@@ -93,6 +105,7 @@ function throwError(message) {
 export default {
     showMessage,
     showError,
+    showErrorTitleAndMessage,
     showAndLogError,
     throwError,
     showPersistent,

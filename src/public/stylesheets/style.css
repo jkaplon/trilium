@@ -386,7 +386,12 @@ table.promoted-attributes-in-tooltip td, table.promoted-attributes-in-tooltip th
     font-size: var(--main-font-size) !important;
 }
 
-.tooltip .arrow {
+.bs-tooltip-bottom .arrow::before { border-bottom-color: var(--main-border-color) !important; }
+.bs-tooltip-top .arrow::before    { border-top-color: var(--main-border-color) !important; }
+.bs-tooltip-left .arrow::before   { border-left-color: var(--main-border-color) !important; }
+.bs-tooltip-right .arrow::before  { border-right-color: var(--main-border-color) !important; }
+
+.note-tooltip.tooltip .arrow {
     display: none;
 }
 
@@ -752,8 +757,8 @@ li.dropdown-submenu:hover > ul.dropdown-menu {
 
 .dropdown-submenu > .dropdown-menu {
     top: 0;
-    left: 100%;
-    margin-top: -6px;
+    left: calc(100% - 2px); /* -2px, otherwise there's a small gap between menu and submenu where the hover can disappear */
+    margin-top: -10px;
     min-width: 15rem;
     /* to make submenu scrollable https://github.com/zadam/trilium/issues/3136 */
     max-height: 600px;
@@ -863,13 +868,14 @@ body {
     margin: 10px;
 }
 
-#launcher-pane .icon-action {
+#launcher-pane .launcher-button {
     font-size: 150%;
     display: inline-block;
     padding: 15px 15px;
     cursor: pointer;
     border: none;
     color: var(--launcher-pane-text-color);
+    background-color: var(--launcher-pane-background-color);
     width: 53px;
     height: 53px;
 }
@@ -966,4 +972,22 @@ button.close:hover {
     position: relative;
     top: 1px;
     margin-right: 3px;
+}
+
+.options-section:first-of-type h4 {
+    margin-top: 0;
+}
+
+.options-section h4 {
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+.options-section h5 {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+textarea {
+    cursor: auto;
 }

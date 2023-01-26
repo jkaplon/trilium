@@ -2,6 +2,7 @@
 
 const becca = require("../../becca/becca");
 const { JSDOM } = require("jsdom");
+const NotFoundError = require("../../errors/not_found_error");
 
 function buildDescendantCountMap() {
     const noteIdToCountMap = {};
@@ -92,7 +93,11 @@ function getLinkMap(req) {
         // for search notes we want to consider the direct search results only without the descendants
         unfilteredNotes = mapRootNote.getSearchResultNotes();
     } else {
-        unfilteredNotes = mapRootNote.getSubtree({includeArchived: false, resolveSearch: true}).notes;
+        unfilteredNotes = mapRootNote.getSubtree({
+            includeArchived: false,
+            resolveSearch: true,
+            includeHidden: mapRootNote.isInHiddenSubtree()
+        }).notes;
     }
 
     const noteIds = new Set(
@@ -115,7 +120,8 @@ function getLinkMap(req) {
         return [
             note.noteId,
             note.getTitleOrProtected(),
-            note.type
+            note.type,
+            note.getLabelValue('color')
         ];
     });
 
@@ -136,7 +142,7 @@ function getLinkMap(req) {
         }
     })
     .map(rel => ({
-        id: rel.noteId + "-" + rel.name + "-" + rel.value,
+        id: `${rel.noteId}-${rel.name}-${rel.value}`,
         sourceNoteId: rel.noteId,
         targetNoteId: rel.value,
         name: rel.name
@@ -154,7 +160,11 @@ function getTreeMap(req) {
     // if the map root itself has ignore (journal typically) then there wouldn't be anything to display so
     // we'll just ignore it
     const ignoreExcludeFromNoteMap = mapRootNote.hasLabel('excludeFromNoteMap');
-    const subtree = mapRootNote.getSubtree({includeArchived: false, resolveSearch: true});
+    const subtree = mapRootNote.getSubtree({
+        includeArchived: false,
+        resolveSearch: true,
+        includeHidden: mapRootNote.isInHiddenSubtree()
+    });
 
     const notes = subtree.notes
         .filter(note => ignoreExcludeFromNoteMap || !note.hasLabel('excludeFromNoteMap'))
@@ -174,7 +184,8 @@ function getTreeMap(req) {
         .map(note => [
             note.noteId,
             note.getTitleOrProtected(),
-            note.type
+            note.type,
+            note.getLabelValue('color')
         ]);
 
     const noteIds = new Set();
@@ -264,7 +275,7 @@ function findExcerpts(sourceNote, referencedNoteId) {
                 if (prevText.length + excerptLength > EXCERPT_CHAR_LIMIT) {
                     const prefix = prevText.substr(prevText.length - (EXCERPT_CHAR_LIMIT - excerptLength));
 
-                    const textNode = document.createTextNode("…" + prefix);
+                    const textNode = document.createTextNode(`…${prefix}`);
                     excerptEls.unshift(textNode);
 
                     break;
@@ -284,7 +295,7 @@ function findExcerpts(sourceNote, referencedNoteId) {
                 if (nextText.length + excerptLength > EXCERPT_CHAR_LIMIT) {
                     const suffix = nextText.substr(nextText.length - (EXCERPT_CHAR_LIMIT - excerptLength));
 
-                    const textNode = document.createTextNode(suffix + "…");
+                    const textNode = document.createTextNode(`${suffix}…`);
                     excerptEls.push(textNode);
 
                     break;
@@ -326,7 +337,7 @@ function getBacklinkCount(req) {
     const note = becca.getNote(noteId);
 
     if (!note) {
-        return [404, "Not found"];
+        throw new NotFoundError(`Note '${noteId}' not found`);
     }
     else {
         return {
@@ -340,7 +351,7 @@ function getBacklinks(req) {
     const note = becca.getNote(noteId);
 
     if (!note) {
-        return [404, `Note ${noteId} was not found`];
+        throw new NotFoundError(`Note '${noteId}' was not found`);
     }
 
     let backlinksWithExcerptCount = 0;

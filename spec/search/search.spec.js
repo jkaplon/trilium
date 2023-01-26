@@ -4,7 +4,7 @@ const Branch = require('../../src/becca/entities/branch');
 const SearchContext = require('../../src/services/search/search_context');
 const dateUtils = require('../../src/services/date_utils');
 const becca = require('../../src/becca/becca');
-const {NoteBuilder, findNoteByTitle, note} = require('./becca_mocking.js');
+const {NoteBuilder, findNoteByTitle, note} = require('./becca_mocking');
 
 describe("Search", () => {
     let rootNote;
@@ -13,7 +13,7 @@ describe("Search", () => {
         becca.reset();
 
         rootNote = new NoteBuilder(new Note({noteId: 'root', title: 'root', type: 'text'}));
-        new Branch({branchId: 'root', noteId: 'root', parentNoteId: 'none', notePosition: 10});
+        new Branch({branchId: 'none_root', noteId: 'root', parentNoteId: 'none', notePosition: 10});
     });
 
     it("simple path match", () => {

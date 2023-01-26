@@ -66,6 +66,21 @@ function getHoistedNote() {
     return becca.getNote(cls.getHoistedNoteId());
 }
 
+function createLauncher(req) {
+    return specialNotesService.createLauncher({
+        parentNoteId: req.params.parentNoteId,
+        launcherType: req.params.launcherType
+    });
+}
+
+function resetLauncher(req) {
+    return specialNotesService.resetLauncher(req.params.noteId);
+}
+
+function createOrUpdateScriptLauncherFromApi(req) {
+    return specialNotesService.createOrUpdateScriptLauncherFromApi(req.body);
+}
+
 module.exports = {
     getInboxNote,
     getDayNote,
@@ -76,5 +91,8 @@ module.exports = {
     createSqlConsole,
     saveSqlConsole,
     createSearchNote,
-    saveSearchNote
+    saveSearchNote,
+    createLauncher,
+    resetLauncher,
+    createOrUpdateScriptLauncherFromApi
 };

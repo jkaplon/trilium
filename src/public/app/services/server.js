@@ -1,9 +1,10 @@
 import utils from './utils.js';
+import ValidationError from "./validation_error.js";
 
 const REQUEST_LOGGING_ENABLED = false;
 
 async function getHeaders(headers) {
-    const appContext = (await import('./app_context.js')).default;
+    const appContext = (await import('../components/app_context.js')).default;
     const activeNoteContext = appContext.tabManager ? appContext.tabManager.getActiveContext() : null;
 
     // headers need to be lowercase because node.js automatically converts them to lower case
@@ -71,14 +72,14 @@ async function call(method, url, data, headers = {}) {
             reqRejects[requestId] = reject;
 
             if (REQUEST_LOGGING_ENABLED) {
-                console.log(utils.now(), "Request #" + requestId + " to " + method + " " + url);
+                console.log(utils.now(), `Request #${requestId} to ${method} ${url}`);
             }
 
             ipc.send('server-request', {
                 requestId: requestId,
                 headers: headers,
                 method: method,
-                url: "/" + baseApiUrl + url,
+                url: `/${baseApiUrl}${url}`,
                 data: data
             });
         });
@@ -102,12 +103,26 @@ async function call(method, url, data, headers = {}) {
     return resp.body;
 }
 
-async function reportError(method, url, status, error) {
-    const message = "Error when calling " + method + " " + url + ": " + status + " - " + error;
-
+async function reportError(method, url, statusCode, response) {
     const toastService = (await import("./toast.js")).default;
-    toastService.showError(message);
-    toastService.throwError(message);
+    let message = response;
+
+    if (typeof response === 'string') {
+        try {
+            response = JSON.parse(response);
+            message = response.message;
+        }
+        catch (e) {}
+    }
+
+    if ([400, 404].includes(statusCode) && response && typeof response === 'object') {
+        toastService.showError(message);
+        throw new ValidationError(response);
+    } else {
+        const title = `${statusCode} ${method} ${url}`;
+        toastService.showErrorTitleAndMessage(title, message);
+        toastService.throwError(`${title} - ${message}`);
+    }
 }
 
 function ajax(url, method, data, headers) {
@@ -131,8 +146,8 @@ function ajax(url, method, data, headers) {
                     headers: respHeaders
                 });
             },
-            error: async (jqXhr, status) => {
-                await reportError(method, url, status, jqXhr.responseText);
+            error: async jqXhr => {
+                await reportError(method, url, jqXhr.status, jqXhr.responseText);
 
                 rej(jqXhr.responseText);
             }
@@ -156,7 +171,7 @@ if (utils.isElectron()) {
 
     ipc.on('server-response', async (event, arg) => {
         if (REQUEST_LOGGING_ENABLED) {
-            console.log(utils.now(), "Response #" + arg.requestId + ": " + arg.statusCode);
+            console.log(utils.now(), `Response #${arg.requestId}: ${arg.statusCode}`);
         }
 
         if (arg.statusCode >= 200 && arg.statusCode < 300) {

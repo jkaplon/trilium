@@ -31,7 +31,7 @@ class AbstractEntity {
         let contentToHash = "";
 
         for (const propertyName of this.constructor.hashedProperties) {
-            contentToHash += "|" + this[propertyName];
+            contentToHash += `|${this[propertyName]}`;
         }
 
         if (isDeleted) {
@@ -46,7 +46,10 @@ class AbstractEntity {
         return this.utcDateModified || this.utcDateCreated;
     }
 
-    /** @protected */
+    /**
+     * @protected
+     * @returns {Becca}
+     */
     get becca() {
         if (!becca) {
             becca = require('../becca');
@@ -75,7 +78,7 @@ class AbstractEntity {
     /**
      * Saves entity - executes SQL, but doesn't commit the transaction on its own
      *
-     * @returns {AbstractEntity}
+     * @returns {this}
      */
     save() {
         const entityName = this.constructor.entityName;

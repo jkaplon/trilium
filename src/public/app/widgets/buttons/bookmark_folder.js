@@ -8,7 +8,7 @@ const DROPDOWN_TPL = `
             min-width: 400px;
             max-height: 500px;
             padding: 7px 15px 0 15px;
-            font-size: 110%;
+            font-size: 1.2rem;
             overflow: auto;
         }
         
@@ -44,7 +44,7 @@ const DROPDOWN_TPL = `
 
 export default class BookmarkFolderWidget extends RightDropdownButtonWidget {
     constructor(note) {
-        super(note.getIcon(), note.title, DROPDOWN_TPL);
+        super(note.title, note.getIcon(), DROPDOWN_TPL);
 
         this.note = note;
     }

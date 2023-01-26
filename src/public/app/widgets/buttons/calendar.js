@@ -2,7 +2,7 @@ import libraryLoader from "../../services/library_loader.js";
 import utils from "../../services/utils.js";
 import dateNoteService from "../../services/date_notes.js";
 import server from "../../services/server.js";
-import appContext from "../../services/app_context.js";
+import appContext from "../../components/app_context.js";
 import RightDropdownButtonWidget from "./right_dropdown_button.js";
 import toastService from "../../services/toast.js";
 
@@ -29,8 +29,8 @@ const DROPDOWN_TPL = `
 </div>`;
 
 export default class CalendarWidget extends RightDropdownButtonWidget {
-    constructor() {
-        super("bx-calendar", "Calendar", DROPDOWN_TPL);
+    constructor(title, icon) {
+        super(title, icon, DROPDOWN_TPL);
     }
 
     doRender() {
@@ -78,7 +78,7 @@ export default class CalendarWidget extends RightDropdownButtonWidget {
 
     init(activeDate) {
         // attaching time fixes local timezone handling
-        this.activeDate = activeDate ? new Date(activeDate + "T12:00:00") : null;
+        this.activeDate = activeDate ? new Date(`${activeDate}T12:00:00`) : null;
         this.todaysDate = new Date();
         this.date = new Date((this.activeDate || this.todaysDate).getTime());
         this.date.setDate(1);
@@ -97,7 +97,7 @@ export default class CalendarWidget extends RightDropdownButtonWidget {
             if (day === 0) {
                 $newDay.css("marginLeft", (6 * 14.28) + '%');
             } else {
-                $newDay.css("marginLeft", ((day - 1) * 14.28) + '%');
+                $newDay.css("marginLeft", `${(day - 1) * 14.28}%`);
             }
         }
 
@@ -132,7 +132,7 @@ export default class CalendarWidget extends RightDropdownButtonWidget {
 
     async createMonth() {
         const month = utils.formatDateISO(this.date).substr(0, 7);
-        const dateNotesForMonth = await server.get('special-notes/notes-for-month/' + month);
+        const dateNotesForMonth = await server.get(`special-notes/notes-for-month/${month}`);
 
         this.$month.empty();
 
@@ -153,7 +153,7 @@ export default class CalendarWidget extends RightDropdownButtonWidget {
         this.date.setDate(1);
         this.date.setMonth(this.date.getMonth() - 1);
 
-        this.$label.html(this.monthsAsString(this.date.getMonth()) + ' ' + this.date.getFullYear());
+        this.$label.html(`${this.monthsAsString(this.date.getMonth())} ${this.date.getFullYear()}`);
     }
 
     monthsAsString(monthIndex) {

@@ -2,7 +2,7 @@ import utils from "../../services/utils.js";
 import toastService from "../../services/toast.js";
 import TypeWidget from "./type_widget.js";
 import libraryLoader from "../../services/library_loader.js";
-import contextMenu from "../../services/context_menu.js";
+import contextMenu from "../../menus/context_menu.js";
 
 const TPL = `
 <div class="note-detail-image note-detail-printable">
@@ -45,10 +45,10 @@ class ImageTypeWidget extends TypeWidget {
         this.$widget = $(TPL);
         this.$imageWrapper = this.$widget.find('.note-detail-image-wrapper');
         this.$imageView = this.$widget.find('.note-detail-image-view')
-            .attr("id", "image-view-" + utils.randomString(10));
+            .attr("id", `image-view-${utils.randomString(10)}`);
 
         libraryLoader.requireLibrary(libraryLoader.WHEEL_ZOOM).then(() => {
-            WZoom.create('#' + this.$imageView.attr("id"), {
+            WZoom.create(`#${this.$imageView.attr("id")}`, {
                 maxScale: 10,
                 speed: 20,
                 zoomOnClick: false

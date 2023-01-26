@@ -1,16 +1,23 @@
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
 
 const TPL = `
-<div>
+<div class="relation-map-buttons">
+    <style>
+        .relation-map-buttons {
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+
     <button type="button"
-            class="relation-map-create-child-note floating-button btn bx bx-folder-plus no-print"
+            class="relation-map-create-child-note floating-button btn bx bx-folder-plus"
             title="Create new child note and add it into this relation map"></button>
     
     <button type="button"
-            class="relation-map-reset-pan-zoom floating-button btn bx bx-crop no-print"
+            class="relation-map-reset-pan-zoom floating-button btn bx bx-crop"
             title="Reset pan & zoom to initial coordinates and magnification"></button>
     
-    <div class="btn-group no-print">
+    <div class="btn-group">
         <button type="button"
                 class="relation-map-zoom-in floating-button btn bx bx-zoom-in"
                 title="Zoom In"></button>
@@ -23,7 +30,7 @@ const TPL = `
 
 export default class RelationMapButtons extends NoteContextAwareWidget {
     isEnabled() {
-        return super.isEnabled() && this.note?.type === 'relation-map';
+        return super.isEnabled() && this.note?.type === 'relationMap';
     }
 
     doRender() {

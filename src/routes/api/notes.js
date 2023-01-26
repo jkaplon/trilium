@@ -6,16 +6,17 @@ const sql = require('../../services/sql');
 const utils = require('../../services/utils');
 const log = require('../../services/log');
 const TaskContext = require('../../services/task_context');
-const protectedSessionService = require('../../services/protected_session');
 const fs = require('fs');
 const becca = require("../../becca/becca");
+const ValidationError = require("../../errors/validation_error");
+const NotFoundError = require("../../errors/not_found_error");
 
 function getNote(req) {
     const noteId = req.params.noteId;
     const note = becca.getNote(noteId);
 
     if (!note) {
-        return [404, "Note " + noteId + " has not been found."];
+        throw new NotFoundError(`Note '${noteId}' has not been found.`);
     }
 
     const pojo = note.getPojo();
@@ -24,8 +25,7 @@ function getNote(req) {
         pojo.content = note.getContent();
 
         if (note.type === 'file' && pojo.content.length > 10000) {
-            pojo.content = pojo.content.substr(0, 10000)
-                + `\r\n\r\n... and ${pojo.content.length - 10000} more characters.`;
+            pojo.content = `${pojo.content.substr(0, 10000)}\r\n\r\n... and ${pojo.content.length - 10000} more characters.`;
         }
     }
 
@@ -197,11 +197,11 @@ function changeTitle(req) {
     const note = becca.getNote(noteId);
 
     if (!note) {
-        return [404, `Note '${noteId}' has not been found`];
+        throw new NotFoundError(`Note '${noteId}' has not been found`);
     }
 
     if (!note.isContentAvailable()) {
-        return [400, `Note '${noteId}' is not available for change`];
+        throw new ValidationError(`Note '${noteId}' is not available for change`);
     }
 
     const noteTitleChanged = note.title !== title;
@@ -235,15 +235,19 @@ function getDeleteNotesPreview(req) {
     const {branchIdsToDelete, deleteAllClones} = req.body;
 
     const noteIdsToBeDeleted = new Set();
-    const branchCountToDelete = {}; // noteId => count (integer)
+    const strongBranchCountToDelete = {}; // noteId => count (integer)
 
     function branchPreviewDeletion(branch) {
-        branchCountToDelete[branch.branchId] = branchCountToDelete[branch.branchId] || 0;
-        branchCountToDelete[branch.branchId]++;
+        if (branch.isWeak) {
+            return;
+        }
+
+        strongBranchCountToDelete[branch.branchId] = strongBranchCountToDelete[branch.branchId] || 0;
+        strongBranchCountToDelete[branch.branchId]++;
 
         const note = branch.getNote();
 
-        if (deleteAllClones || note.getParentBranches().length <= branchCountToDelete[branch.branchId]) {
+        if (deleteAllClones || note.getStrongParentBranches().length <= strongBranchCountToDelete[branch.branchId]) {
             noteIdsToBeDeleted.add(note.noteId);
 
             for (const childBranch of note.getChildBranches()) {
@@ -290,7 +294,7 @@ function uploadModifiedFile(req) {
     const note = becca.getNote(noteId);
 
     if (!note) {
-        return [404, `Note '${noteId}' has not been found`];
+        throw new NotFoundError(`Note '${noteId}' has not been found`);
     }
 
     log.info(`Updating note '${noteId}' with content from ${filePath}`);
@@ -300,7 +304,7 @@ function uploadModifiedFile(req) {
     const fileContent = fs.readFileSync(filePath);
 
     if (!fileContent) {
-        return [400, `File ${fileContent} is empty`];
+        throw new ValidationError(`File '${fileContent}' is empty`);
     }
 
     note.setContent(fileContent);
@@ -311,11 +315,11 @@ function forceSaveNoteRevision(req) {
     const note = becca.getNote(noteId);
 
     if (!note) {
-        return [404, `Note ${noteId} not found.`];
+        throw new NotFoundError(`Note '${noteId}' not found.`);
     }
 
     if (!note.isContentAvailable()) {
-        return [400, `Note revision of a protected note cannot be created outside of a protected session.`];
+        throw new ValidationError(`Note revision of a protected note cannot be created outside of a protected session.`);
     }
 
     note.saveNoteRevision();

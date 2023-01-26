@@ -87,7 +87,7 @@ function getAttributeNames(type, nameLike) {
              FROM attributes 
              WHERE isDeleted = 0
                AND type = ?
-               AND name LIKE ?`, [type, '%' + nameLike + '%']);
+               AND name LIKE ?`, [type, `%${nameLike}%`]);
 
     for (const attr of BUILTIN_ATTRIBUTES) {
         if (attr.type === type && attr.name.toLowerCase().includes(nameLike) && !names.includes(attr.name)) {
@@ -128,20 +128,6 @@ function isAttributeDangerous(type, name) {
     );
 }
 
-function sanitizeAttributeName(origName) {
-    let fixedName;
-
-    if (origName === '') {
-        fixedName = "unnamed";
-    }
-    else {
-        // any not allowed character should be replaced with underscore
-        fixedName = origName.replace(/[^\p{L}\p{N}_:]/ug, "_");
-    }
-
-    return fixedName;
-}
-
 module.exports = {
     getNotesWithLabel,
     getNotesWithLabelFast,
@@ -151,6 +137,5 @@ module.exports = {
     createAttribute,
     getAttributeNames,
     isAttributeType,
-    isAttributeDangerous,
-    sanitizeAttributeName
+    isAttributeDangerous
 };
