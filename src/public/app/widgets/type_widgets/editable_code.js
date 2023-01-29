@@ -57,6 +57,8 @@ export default class EditableCodeTypeWidget extends TypeWidget {
             lint: true,
             gutters: ["CodeMirror-lint-markers"],
             lineNumbers: true,
+            styleActiveLine: true,
+            extraKeys: {"Enter": "newlineAndIndentContinueMarkdownList"},
             tabindex: 300,
             // we line wrap partly also because without it horizontal scrollbar displays only when you scroll
             // all the way to the bottom of the note. With line wrap there's no horizontal scrollbar so no problem
@@ -64,6 +66,36 @@ export default class EditableCodeTypeWidget extends TypeWidget {
             dragDrop: false, // with true the editor inlines dropped files which is not what we expect
             placeholder: "Type the content of your code note here..."
         });
+        
+        // Add my .vimrc stuff.
+        const { Vim } = CodeMirror;
+        Vim.map('jj', '<Esc>', 'insert');
+        Vim.map(';', ':', 'normal');
+        try { // Avoid error resluting in blank content if mult. code notes open in Trilium tabs.
+            Vim.unmap('<Space>');
+        } catch (err) {
+            if (err.message = 'No such mapping.') {
+                // Log to console, but do not re-throw; expected behavior.
+                console.log('CodeMirror.Vim error, "No such mapping." expected if mult. code notes open in Trilium tabs.');
+            }
+        }
+        Vim.map('<Space><Space>', 'l');
+        Vim.defineAction('ghMdCkBxAdd', (cm, args) => {
+            // Based on review of vim_test.js code, replaceRange() needed for insert mode.
+            // Note replaceRange() and getCursor() are methods on cm object, not Vim object (maybe clean this up later).
+            // doKeys() func in vim_test.js would also type into insert mode, but i don't understand it.
+            Vim.handleKey(cm, 'o');
+            cm.replaceRange('- [ ] ', cm.getCursor());
+        });
+        Vim.mapCommand('<Space>c', 'action', 'ghMdCkBxAdd');
+        Vim.defineAction('ghMdCkBx', (cm, args) => {
+            // Store cursor position so we can return after substitution.
+            const curPos = cm.getCursor();
+            // Must escape backslashes...even though they are themselves escape chars in the vim substitution :).
+            Vim.handleEx(cm, 's/\\[\\s\\]/[x]');
+            cm.setCursor(curPos);
+        });
+        Vim.mapCommand('<Space>x', 'action', 'ghMdCkBx');
 
         this.codeEditor.on('change', () => this.spacedUpdate.scheduleUpdate());
     }
