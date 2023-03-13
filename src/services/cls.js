@@ -92,5 +92,5 @@ module.exports = {
     reset,
     getAndClearEntityChangeIds,
     addEntityChange,
-    ignoreEntityChangeIds
+    ignoreEntityChangeIds,
 };

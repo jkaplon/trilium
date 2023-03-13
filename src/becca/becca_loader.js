@@ -5,11 +5,11 @@ const eventService = require('../services/events');
 const becca = require('./becca');
 const sqlInit = require('../services/sql_init');
 const log = require('../services/log');
-const Note = require('./entities/note');
-const Branch = require('./entities/branch');
-const Attribute = require('./entities/attribute');
-const Option = require('./entities/option');
-const EtapiToken = require("./entities/etapi_token");
+const BNote = require('./entities/bnote');
+const BBranch = require('./entities/bbranch');
+const BAttribute = require('./entities/battribute');
+const BOption = require('./entities/boption');
+const BEtapiToken = require("./entities/betapi_token");
 const cls = require("../services/cls");
 const entityConstructor = require("../becca/entity_constructor");
 
@@ -31,23 +31,27 @@ function load() {
     // this is worth it for becca load since it happens every run and blocks the app until finished
 
     for (const row of sql.getRawRows(`SELECT noteId, title, type, mime, isProtected, dateCreated, dateModified, utcDateCreated, utcDateModified FROM notes WHERE isDeleted = 0`)) {
-        new Note().update(row).init();
+        new BNote().update(row).init();
     }
 
-    for (const row of sql.getRawRows(`SELECT branchId, noteId, parentNoteId, prefix, notePosition, isExpanded, utcDateModified FROM branches WHERE isDeleted = 0`)) {
-        new Branch().update(row).init();
+    const branchRows = sql.getRawRows(`SELECT branchId, noteId, parentNoteId, prefix, notePosition, isExpanded, utcDateModified FROM branches WHERE isDeleted = 0`);
+    // in-memory sort is faster than in the DB
+    branchRows.sort((a, b) => a.notePosition - b.notePosition);
+
+    for (const row of branchRows) {
+        new BBranch().update(row).init();
     }
 
     for (const row of sql.getRawRows(`SELECT attributeId, noteId, type, name, value, isInheritable, position, utcDateModified FROM attributes WHERE isDeleted = 0`)) {
-        new Attribute().update(row).init();
+        new BAttribute().update(row).init();
     }
 
     for (const row of sql.getRows(`SELECT name, value, isSynced, utcDateModified FROM options`)) {
-        new Option(row);
+        new BOption(row);
     }
 
     for (const row of sql.getRows(`SELECT etapiTokenId, name, tokenHash, utcDateCreated, utcDateModified FROM etapi_tokens WHERE isDeleted = 0`)) {
-        new EtapiToken(row);
+        new BEtapiToken(row);
     }
 
     for (const noteId in becca.notes) {
@@ -80,7 +84,7 @@ eventService.subscribeBeccaLoader([eventService.ENTITY_CHANGE_SYNCED],  ({entity
         return;
     }
 
-    if (["notes", "branches", "attributes", "etapi_tokens"].includes(entityName)) {
+    if (["notes", "branches", "attributes", "etapi_tokens", "options"].includes(entityName)) {
         const EntityClass = entityConstructor.getEntityFromEntityName(entityName);
         const primaryKeyName = EntityClass.primaryKeyName;
 
@@ -164,6 +168,12 @@ function branchUpdated(branch) {
         childNote.flatTextCache = null;
         childNote.sortParents();
     }
+
+    const parentNote = becca.notes[branch.parentNoteId];
+
+    if (parentNote) {
+        parentNote.sortChildren();
+    }
 }
 
 function attributeDeleted(attributeId) {
@@ -177,7 +187,7 @@ function attributeDeleted(attributeId) {
 
     if (note) {
         // first invalidate and only then remove the attribute (otherwise invalidation wouldn't be complete)
-        if (attribute.isAffectingSubtree || note.isTemplate()) {
+        if (attribute.isAffectingSubtree || note.isInherited()) {
             note.invalidateSubTree();
         } else {
             note.invalidateThisCache();
@@ -205,7 +215,7 @@ function attributeUpdated(attribute) {
     const note = becca.notes[attribute.noteId];
 
     if (note) {
-        if (attribute.isAffectingSubtree || note.isTemplate()) {
+        if (attribute.isAffectingSubtree || note.isInherited()) {
             note.invalidateSubTree();
         } else {
             note.invalidateThisCache();

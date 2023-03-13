@@ -157,6 +157,10 @@ function fillAllEntityChanges() {
     });
 }
 
+function recalculateMaxEntityChangeId() {
+    maxEntityChangeId = sql.getValue("SELECT COALESCE(MAX(id), 0) FROM entity_changes");
+}
+
 module.exports = {
     addNoteReorderingEntityChange,
     moveEntityChangeToTop,
@@ -164,5 +168,6 @@ module.exports = {
     addEntityChangeWithInstanceId,
     fillAllEntityChanges,
     addEntityChangesForSector,
-    getMaxEntityChangeId: () => maxEntityChangeId
+    getMaxEntityChangeId: () => maxEntityChangeId,
+    recalculateMaxEntityChangeId
 };

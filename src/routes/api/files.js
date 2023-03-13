@@ -3,7 +3,7 @@
 const protectedSessionService = require('../../services/protected_session');
 const utils = require('../../services/utils');
 const log = require('../../services/log');
-const noteRevisionService = require('../../services/note_revisions');
+const noteService = require('../../services/notes');
 const tmp = require('tmp');
 const fs = require('fs');
 const { Readable } = require('stream');
@@ -30,6 +30,8 @@ function updateFile(req) {
     note.setContent(file.buffer);
 
     note.setLabel('originalFileName', file.originalname);
+
+    noteService.asyncPostProcessContent(note, file.buffer);
 
     return {
         uploaded: true

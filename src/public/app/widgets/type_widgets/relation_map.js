@@ -586,8 +586,10 @@ export default class RelationMapTypeWidget extends TypeWidget {
         };
     }
 
-    getContent() {
-        return JSON.stringify(this.mapData);
+    getData() {
+        return {
+            content: JSON.stringify(this.mapData)
+        };
     }
 
     async relationMapCreateChildNoteEvent({ntxId}) {

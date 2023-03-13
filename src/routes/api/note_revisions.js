@@ -39,8 +39,8 @@ function getNoteRevision(req) {
 }
 
 /**
- * @param {NoteRevision} noteRevision
- * @return {string}
+ * @param {BNoteRevision} noteRevision
+ * @returns {string}
  */
 function getRevisionFilename(noteRevision) {
     let filename = utils.formatDownloadTitle(noteRevision.title, noteRevision.type, noteRevision.mime);

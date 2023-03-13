@@ -128,8 +128,10 @@ export default class EditableCodeTypeWidget extends TypeWidget {
         }
     }
 
-    getContent() {
-        return this.codeEditor.getValue();
+    getData() {
+        return {
+            content: this.codeEditor.getValue()
+        };
     }
 
     focus() {

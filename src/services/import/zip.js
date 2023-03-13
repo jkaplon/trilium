@@ -1,11 +1,11 @@
 "use strict";
 
-const Attribute = require('../../becca/entities/attribute');
+const BAttribute = require('../../becca/entities/battribute');
 const utils = require('../../services/utils');
 const log = require('../../services/log');
 const noteService = require('../../services/notes');
 const attributeService = require('../../services/attributes');
-const Branch = require('../../becca/entities/branch');
+const BBranch = require('../../becca/entities/bbranch');
 const path = require('path');
 const commonmark = require('commonmark');
 const protectedSessionService = require('../protected_session');
@@ -18,11 +18,11 @@ const becca = require("../../becca/becca");
 /**
  * @param {TaskContext} taskContext
  * @param {Buffer} fileBuffer
- * @param {Note} importRootNote
- * @return {Promise<*>}
+ * @param {BNote} importRootNote
+ * @returns {Promise<*>}
  */
 async function importZip(taskContext, fileBuffer, importRootNote) {
-    // maps from original noteId (in tar file) to newly generated noteId
+    // maps from original noteId (in ZIP file) to newly generated noteId
     const noteIdMap = {};
     const attributes = [];
     // path => noteId, used only when meta file is not available
@@ -71,7 +71,7 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
             }
 
             parent = cursor;
-            cursor = cursor.children.find(file => file.dataFileName === segment || file.dirFileName === segment);
+            cursor = parent.children.find(file => file.dataFileName === segment || file.dirFileName === segment);
         }
 
         return {
@@ -96,8 +96,7 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
                 parentNoteId = createdPaths[parentPath];
             }
             else {
-                // tar allows creating out of order records - i.e. file in a directory can appear in the tar stream before actual directory
-                // (out-of-order-directory-records.tar in test set)
+                // ZIP allows creating out of order records - i.e. file in a directory can appear in the ZIP stream before actual directory
                 parentNoteId = saveDirectory(parentPath);
             }
         }
@@ -232,144 +231,109 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
 
         const {noteMeta} = getMeta(absUrl);
 
-        if (!noteMeta) {
-            log.info(`Could not find note meta for URL '${absUrl}'.`);
-
-            return null;
-        }
-
         const targetNoteId = getNoteId(noteMeta, absUrl);
         return targetNoteId;
     }
 
-    function saveNote(filePath, content) {
-        const {parentNoteMeta, noteMeta} = getMeta(filePath);
-
-        if (noteMeta && noteMeta.noImport) {
-            return;
+    function processTextNoteContent(content, noteTitle, filePath, noteMeta) {
+        function isUrlAbsolute(url) {
+            return /^(?:[a-z]+:)?\/\//i.test(url);
         }
 
-        const noteId = getNoteId(noteMeta, filePath);
-        const parentNoteId = getParentNoteId(filePath, parentNoteMeta);
+        content = content.replace(/<h1>([^<]*)<\/h1>/gi, (match, text) => {
+            if (noteTitle.trim() === text.trim()) {
+                return ""; // remove whole H1 tag
+            } else {
+                return `<h2>${text}</h2>`;
+            }
+        });
 
-        if (!parentNoteId) {
-            throw new Error(`Cannot find parentNoteId for ${filePath}`);
-        }
+        content = htmlSanitizer.sanitize(content);
 
-        if (noteMeta && noteMeta.isClone) {
-            if (!becca.getBranchFromChildAndParent(noteId, parentNoteId)) {
-                new Branch({
-                    noteId,
-                    parentNoteId,
-                    isExpanded: noteMeta.isExpanded,
-                    prefix: noteMeta.prefix,
-                    notePosition: noteMeta.notePosition
-                }).save();
+        content = content.replace(/<html.*<body[^>]*>/gis, "");
+        content = content.replace(/<\/body>.*<\/html>/gis, "");
+
+        content = content.replace(/src="([^"]*)"/g, (match, url) => {
+            try {
+                url = decodeURIComponent(url);
+            } catch (e) {
+                log.error(`Cannot parse image URL '${url}', keeping original (${e}).`);
+                return `src="${url}"`;
             }
 
-            return;
+            if (isUrlAbsolute(url) || url.startsWith("/")) {
+                return match;
+            }
+
+            const targetNoteId = getNoteIdFromRelativeUrl(url, filePath);
+
+            if (!targetNoteId) {
+                return match;
+            }
+
+            return `src="api/images/${targetNoteId}/${path.basename(url)}"`;
+        });
+
+        content = content.replace(/href="([^"]*)"/g, (match, url) => {
+            try {
+                url = decodeURIComponent(url);
+            } catch (e) {
+                log.error(`Cannot parse link URL '${url}', keeping original (${e}).`);
+                return `href="${url}"`;
+            }
+
+            if (url.startsWith('#') // already a note path (probably)
+                || isUrlAbsolute(url)) {
+                return match;
+            }
+
+            const targetNoteId = getNoteIdFromRelativeUrl(url, filePath);
+
+            if (!targetNoteId) {
+                return match;
+            }
+
+            return `href="#root/${targetNoteId}"`;
+        });
+
+        content = content.replace(/data-note-path="([^"]*)"/g, (match, notePath) => {
+            const noteId = notePath.split("/").pop();
+
+            let targetNoteId;
+
+            if (noteId === 'root' || noteId.startsWith("_")) { // named noteIds stay identical across instances
+                targetNoteId = noteId;
+            } else {
+                targetNoteId = noteIdMap[noteId];
+            }
+
+            return `data-note-path="root/${targetNoteId}"`;
+        });
+
+        if (noteMeta) {
+            const includeNoteLinks = (noteMeta.attributes || [])
+                .filter(attr => attr.type === 'relation' && attr.name === 'includeNoteLink');
+
+            for (const link of includeNoteLinks) {
+                // no need to escape the regexp find string since it's a noteId which doesn't contain any special characters
+                content = content.replace(new RegExp(link.value, "g"), getNewNoteId(link.value));
+            }
         }
 
-        let {type, mime} = noteMeta ? noteMeta : detectFileTypeAndMime(taskContext, filePath);
+        content = content.trim();
 
-        if (type !== 'file' && type !== 'image') {
-            content = content.toString("UTF-8");
-        }
+        return content;
+    }
 
-        type = resolveNoteType(type);
-
-        if ((noteMeta && noteMeta.format === 'markdown')
+    function processNoteContent(noteMeta, type, mime, content, noteTitle, filePath) {
+        if (noteMeta?.format === 'markdown'
             || (!noteMeta && taskContext.data.textImportedAsText && ['text/markdown', 'text/x-markdown'].includes(mime))) {
             const parsed = mdReader.parse(content);
             content = mdWriter.render(parsed);
         }
 
-        const noteTitle = utils.getNoteTitle(filePath, taskContext.data.replaceUnderscoresWithSpaces, noteMeta);
-
         if (type === 'text') {
-            function isUrlAbsolute(url) {
-                return /^(?:[a-z]+:)?\/\//i.test(url);
-            }
-
-            content = content.replace(/<h1>([^<]*)<\/h1>/gi, (match, text) => {
-                if (noteTitle.trim() === text.trim()) {
-                    return ""; // remove whole H1 tag
-                }
-                else {
-                    return `<h2>${text}</h2>`;
-                }
-            });
-
-            content = htmlSanitizer.sanitize(content);
-
-            content = content.replace(/<html.*<body[^>]*>/gis, "");
-            content = content.replace(/<\/body>.*<\/html>/gis, "");
-
-            content = content.replace(/src="([^"]*)"/g, (match, url) => {
-                try {
-                    url = decodeURIComponent(url);
-                } catch (e) {
-                    log.error(`Cannot parse image URL '${url}', keeping original (${e}).`);
-                    return `src="${url}"`;
-                }
-
-                if (isUrlAbsolute(url) || url.startsWith("/")) {
-                    return match;
-                }
-
-                const targetNoteId = getNoteIdFromRelativeUrl(url, filePath);
-
-                if (!targetNoteId) {
-                    return match;
-                }
-
-                return `src="api/images/${targetNoteId}/${path.basename(url)}"`;
-            });
-
-            content = content.replace(/href="([^"]*)"/g, (match, url) => {
-                try {
-                    url = decodeURIComponent(url);
-                } catch (e) {
-                    log.error(`Cannot parse link URL '${url}', keeping original (${e}).`);
-                    return `href="${url}"`;
-                }
-
-                if (url.startsWith('#') || isUrlAbsolute(url)) {
-                    return match;
-                }
-
-                const targetNoteId = getNoteIdFromRelativeUrl(url, filePath);
-
-                if (!targetNoteId) {
-                    return match;
-                }
-
-                return `href="#root/${targetNoteId}"`;
-            });
-
-            content = content.replace(/data-note-path="([^"]*)"/g, (match, notePath) => {
-                const noteId = notePath.split("/").pop();
-
-                let targetNoteId;
-
-                if (noteId === 'root' || noteId.startsWith("_")) { // named noteIds stay identical across instances
-                    targetNoteId = noteId;
-                } else {
-                    targetNoteId = noteIdMap[noteId];
-                }
-
-                return `data-note-path="root/${targetNoteId}"`;
-            });
-
-            if (noteMeta) {
-                const includeNoteLinks = (noteMeta.attributes || [])
-                    .filter(attr => attr.type === 'relation' && attr.name === 'includeNoteLink');
-
-                for (const link of includeNoteLinks) {
-                    // no need to escape the regexp find string since it's a noteId which doesn't contain any special characters
-                    content = content.replace(new RegExp(link.value, "g"), getNewNoteId(link.value));
-                }
-            }
+            content = processTextNoteContent(content, noteTitle, filePath, noteMeta);
         }
 
         if (type === 'relationMap' && noteMeta) {
@@ -383,16 +347,48 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
             }
         }
 
-        if (type === 'text' && noteMeta) {
-            const includeNoteLinks = (noteMeta.attributes || [])
-                .filter(attr => attr.type === 'relation' && attr.name === 'includeNoteLink');
+        return content;
+    }
 
-            // this will replace relation map links
-            for (const link of includeNoteLinks) {
-                // no need to escape the regexp find string since it's a noteId which doesn't contain any special characters
-                content = content.replace(new RegExp(link.value, "g"), getNewNoteId(link.value));
-            }
+    function saveNote(filePath, content) {
+        const {parentNoteMeta, noteMeta} = getMeta(filePath);
+
+        if (noteMeta?.noImport) {
+            return;
         }
+
+        const noteId = getNoteId(noteMeta, filePath);
+
+        const parentNoteId = getParentNoteId(filePath, parentNoteMeta);
+
+        if (!parentNoteId) {
+            throw new Error(`Cannot find parentNoteId for ${filePath}`);
+        }
+
+        if (noteMeta?.isClone) {
+            if (!becca.getBranchFromChildAndParent(noteId, parentNoteId)) {
+                new BBranch({
+                    noteId,
+                    parentNoteId,
+                    isExpanded: noteMeta.isExpanded,
+                    prefix: noteMeta.prefix,
+                    notePosition: noteMeta.notePosition
+                }).save();
+            }
+
+            return;
+        }
+
+        let {type, mime} = noteMeta ? noteMeta : detectFileTypeAndMime(taskContext, filePath);
+        type = resolveNoteType(type);
+
+        if (type !== 'file' && type !== 'image') {
+            content = content.toString("UTF-8");
+        }
+
+        const noteTitle = utils.getNoteTitle(filePath, taskContext.data.replaceUnderscoresWithSpaces, noteMeta);
+
+        content = processNoteContent(noteMeta, type, mime, content, noteTitle, filePath);
 
         let note = becca.getNote(noteId);
 
@@ -412,7 +408,7 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
             note.setContent(content);
 
             if (!becca.getBranchFromChildAndParent(noteId, parentNoteId)) {
-                new Branch({
+                new BBranch({
                     noteId,
                     parentNoteId,
                     isExpanded: noteMeta.isExpanded,
@@ -460,49 +456,6 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
         }
     }
 
-    /** @returns {string} path without leading or trailing slash and backslashes converted to forward ones*/
-    function normalizeFilePath(filePath) {
-        filePath = filePath.replace(/\\/g, "/");
-
-        if (filePath.startsWith("/")) {
-            filePath = filePath.substr(1);
-        }
-
-        if (filePath.endsWith("/")) {
-            filePath = filePath.substr(0, filePath.length - 1);
-        }
-
-        return filePath;
-    }
-
-    function streamToBuffer(stream) {
-        const chunks = [];
-        stream.on('data', chunk => chunks.push(chunk));
-
-        return new Promise((res, rej) => stream.on('end', () => res(Buffer.concat(chunks))));
-    }
-
-    function readContent(zipfile, entry) {
-        return new Promise((res, rej) => {
-            zipfile.openReadStream(entry, function(err, readStream) {
-                if (err) rej(err);
-
-                streamToBuffer(readStream).then(res);
-            });
-        });
-    }
-
-    function readZipFile(buffer, processEntryCallback) {
-        return new Promise((res, rej) => {
-            yauzl.fromBuffer(buffer, {lazyEntries: true, validateEntrySizes: false}, function(err, zipfile) {
-                if (err) throw err;
-                zipfile.readEntry();
-                zipfile.on("entry", entry => processEntryCallback(zipfile, entry));
-                zipfile.on("end", res);
-            });
-        });
-    }
-
     // we're running two passes to make sure that the meta file is loaded before the rest of the files is processed.
 
     await readZipFile(fileBuffer, async (zipfile, entry) => {
@@ -534,11 +487,12 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
     });
 
     for (const noteId in createdNoteIds) { // now the noteIds are unique
-        noteService.scanForLinks(becca.getNote(noteId));
+        const note = becca.getNote(noteId);
+        await noteService.asyncPostProcessContent(note, note.getContent());
 
         if (!metaFile) {
             // if there's no meta file then the notes are created based on the order in that zip file but that
-            // is usually quite random so we sort the notes in the way they would appear in the file manager
+            // is usually quite random, so we sort the notes in the way they would appear in the file manager
             treeService.sortNotes(noteId, 'title', false, true);
         }
 
@@ -548,15 +502,58 @@ async function importZip(taskContext, fileBuffer, importRootNote) {
     // we're saving attributes and links only now so that all relation and link target notes
     // are already in the database (we don't want to have "broken" relations, not even transitionally)
     for (const attr of attributes) {
-        if (attr.type !== 'relation' || attr.value in createdNoteIds) {
-            new Attribute(attr).save();
+        if (attr.type !== 'relation' || attr.value in becca.notes) {
+            new BAttribute(attr).save();
         }
         else {
-            log.info(`Relation not imported since target note doesn't exist: ${JSON.stringify(attr)}`);
+            log.info(`Relation not imported since the target note doesn't exist: ${JSON.stringify(attr)}`);
         }
     }
 
     return firstNote;
+}
+
+/** @returns {string} path without leading or trailing slash and backslashes converted to forward ones */
+function normalizeFilePath(filePath) {
+    filePath = filePath.replace(/\\/g, "/");
+
+    if (filePath.startsWith("/")) {
+        filePath = filePath.substr(1);
+    }
+
+    if (filePath.endsWith("/")) {
+        filePath = filePath.substr(0, filePath.length - 1);
+    }
+
+    return filePath;
+}
+
+function streamToBuffer(stream) {
+    const chunks = [];
+    stream.on('data', chunk => chunks.push(chunk));
+
+    return new Promise((res, rej) => stream.on('end', () => res(Buffer.concat(chunks))));
+}
+
+function readContent(zipfile, entry) {
+    return new Promise((res, rej) => {
+        zipfile.openReadStream(entry, function(err, readStream) {
+            if (err) rej(err);
+
+            streamToBuffer(readStream).then(res);
+        });
+    });
+}
+
+function readZipFile(buffer, processEntryCallback) {
+    return new Promise((res, rej) => {
+        yauzl.fromBuffer(buffer, {lazyEntries: true, validateEntrySizes: false}, function(err, zipfile) {
+            if (err) throw err;
+            zipfile.readEntry();
+            zipfile.on("entry", entry => processEntryCallback(zipfile, entry));
+            zipfile.on("end", res);
+        });
+    });
 }
 
 function resolveNoteType(type) {

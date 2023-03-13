@@ -122,13 +122,13 @@ export default class EditableTextTypeWidget extends AbstractTextTypeWidget {
         this.watchdog = new EditorWatchdog(BalloonEditor, {
             // An average number of milliseconds between the last editor errors (defaults to 5000).
             // When the period of time between errors is lower than that and the crashNumberLimit
-            // is also reached, the watchdog changes its state to crashedPermanently and it stops
+            // is also reached, the watchdog changes its state to crashedPermanently, and it stops
             // restarting the editor. This prevents an infinite restart loop.
             minimumNonErrorTimePeriod: 5000,
             // A threshold specifying the number of errors (defaults to 3).
             // After this limit is reached and the time between last errors
             // is shorter than minimumNonErrorTimePeriod, the watchdog changes
-            // its state to crashedPermanently and it stops restarting the editor.
+            // its state to crashedPermanently, and it stops restarting the editor.
             // This prevents an infinite restart loop.
             crashNumberLimit: 3,
             // A minimum number of milliseconds between saving the editor data internally (defaults to 5000).
@@ -154,6 +154,19 @@ export default class EditableTextTypeWidget extends AbstractTextTypeWidget {
             }
         });
 
+        this.watchdog.setCreator(async (elementOrData, editorConfig) => {
+            const editor = await BalloonEditor.create(elementOrData, editorConfig);
+
+            editor.model.document.on('change:data', () => this.spacedUpdate.scheduleUpdate());
+
+            if (glob.isDev && ENABLE_INSPECTOR) {
+                await import(/* webpackIgnore: true */'../../../libraries/ckeditor/inspector.js');
+                CKEditorInspector.attach(editor);
+            }
+
+            return editor;
+        });
+
         await this.watchdog.create(this.$editor[0], {
             placeholder: "Type the content of your note here ...",
             mention: mentionSetup,
@@ -168,13 +181,6 @@ export default class EditableTextTypeWidget extends AbstractTextTypeWidget {
                 enablePreview: true // Enable preview view
             }
         });
-
-        this.watchdog.editor.model.document.on('change:data', () => this.spacedUpdate.scheduleUpdate());
-
-        if (glob.isDev && ENABLE_INSPECTOR) {
-            await import(/* webpackIgnore: true */'../../../libraries/ckeditor/inspector.js');
-            CKEditorInspector.attach(this.watchdog.editor);
-        }
     }
 
     async doRefresh(note) {
@@ -185,12 +191,14 @@ export default class EditableTextTypeWidget extends AbstractTextTypeWidget {
         });
     }
 
-    getContent() {
+    getData() {
         const content = this.watchdog.editor.getData();
 
         // if content is only tags/whitespace (typically <p>&nbsp;</p>), then just make it empty
         // this is important when setting new note to code
-        return utils.isHtmlEmpty(content) ? '' : content;
+        return {
+            content: utils.isHtmlEmpty(content) ? '' : content
+        };
     }
 
     focus() {

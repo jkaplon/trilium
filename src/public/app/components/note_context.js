@@ -9,15 +9,14 @@ import hoistedNoteService from "../services/hoisted_note.js";
 import options from "../services/options.js";
 
 class NoteContext extends Component {
-    /**
-     * @param {string|null} ntxId
-     */
     constructor(ntxId = null, hoistedNoteId = 'root', mainNtxId = null) {
         super();
 
         this.ntxId = ntxId || utils.randomString(4);
         this.hoistedNoteId = hoistedNoteId;
         this.mainNtxId = mainNtxId;
+
+        this.resetViewScope();
     }
 
     setEmpty() {
@@ -30,13 +29,17 @@ class NoteContext extends Component {
             noteContext: this,
             notePath: this.notePath
         });
+
+        this.resetViewScope();
     }
 
     isEmpty() {
         return !this.noteId;
     }
 
-    async setNote(inputNotePath, triggerSwitchEvent = true) {
+    async setNote(inputNotePath, opts = {}) {
+        opts.triggerSwitchEvent = opts.triggerSwitchEvent !== undefined ? opts.triggerSwitchEvent : true;
+
         const resolvedNotePath = await this.getResolvedNotePath(inputNotePath);
 
         if (!resolvedNotePath) {
@@ -50,19 +53,28 @@ class NoteContext extends Component {
         this.notePath = resolvedNotePath;
         ({noteId: this.noteId, parentNoteId: this.parentNoteId} = treeService.getNoteIdAndParentIdFromNotePath(resolvedNotePath));
 
-        this.readOnlyTemporarilyDisabled = false;
+        this.resetViewScope();
+        this.viewScope.viewMode = opts.viewMode || "default";
 
         this.saveToRecentNotes(resolvedNotePath);
 
         protectedSessionHolder.touchProtectedSessionIfNecessary(this.note);
 
-        if (triggerSwitchEvent) {
+        if (opts.triggerSwitchEvent) {
             await this.triggerEvent('noteSwitched', {
                 noteContext: this,
                 notePath: this.notePath
             });
         }
 
+        await this.setHoistedNoteIfNeeded();
+
+        if (utils.isMobile()) {
+            this.triggerCommand('setActiveScreen', {screen: 'detail'});
+        }
+    }
+
+    async setHoistedNoteIfNeeded() {
         if (this.hoistedNoteId === 'root'
             && this.notePath.startsWith("root/_hidden")
             && !this.note.hasLabel("keepCurrentHoisting")
@@ -78,10 +90,6 @@ class NoteContext extends Component {
             }
 
             await this.setHoistedNoteId(hoistedNoteId);
-        }
-
-        if (utils.isMobile()) {
-            this.triggerCommand('setActiveScreen', {screen: 'detail'});
         }
     }
 
@@ -140,7 +148,7 @@ class NoteContext extends Component {
         return resolvedNotePath;
     }
 
-    /** @property {NoteShort} */
+    /** @property {FNote} */
     get note() {
         if (!this.noteId || !(this.noteId in froca.notes)) {
             return null;
@@ -154,7 +162,7 @@ class NoteContext extends Component {
         return this.notePath ? this.notePath.split('/') : [];
     }
 
-    /** @returns {NoteComplement} */
+    /** @returns {FNoteComplement} */
     async getNoteComplement() {
         if (!this.noteId) {
             return null;
@@ -178,7 +186,8 @@ class NoteContext extends Component {
             mainNtxId: this.mainNtxId,
             notePath: this.notePath,
             hoistedNoteId: this.hoistedNoteId,
-            active: this.isActive()
+            active: this.isActive(),
+            viewMode: this.viewScope.viewMode
         }
     }
 
@@ -204,7 +213,7 @@ class NoteContext extends Component {
     }
 
     async isReadOnly() {
-        if (this.readOnlyTemporarilyDisabled) {
+        if (this.viewScope.readOnlyTemporarilyDisabled) {
             return false;
         }
 
@@ -219,9 +228,9 @@ class NoteContext extends Component {
 
         const noteComplement = await this.getNoteComplement();
 
-        const sizeLimit = this.note.type === 'text' ?
-            options.getInt('autoReadonlySizeText')
-                : options.getInt('autoReadonlySizeCode');
+        const sizeLimit = this.note.type === 'text'
+            ? options.getInt('autoReadonlySizeText')
+            : options.getInt('autoReadonlySizeCode');
 
         return noteComplement.content
             && noteComplement.content.length > sizeLimit
@@ -246,6 +255,7 @@ class NoteContext extends Component {
 
     hasNoteList() {
         return this.note
+            && this.viewScope.viewMode === 'default'
             && this.note.hasChildren()
             && ['book', 'text', 'code'].includes(this.note.type)
             && this.note.mime !== 'text/x-sqlite;schema=trilium'
@@ -279,6 +289,13 @@ class NoteContext extends Component {
             resolve,
             ntxId: this.ntxId
         }));
+    }
+
+    resetViewScope() {
+        // view scope contains data specific to one note context and one "view".
+        // it is used to e.g. make read-only note temporarily editable or to hide TOC
+        // this is reset after navigating to a different note
+        this.viewScope = {};
     }
 }
 

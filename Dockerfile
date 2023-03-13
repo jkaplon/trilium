@@ -1,5 +1,5 @@
 # !!! Don't try to build this Dockerfile directly, run it through bin/build-docker.sh script !!!
-FROM node:16.19.0-alpine
+FROM node:16.19.1-alpine
 
 # Create app directory
 WORKDIR /usr/src/app
@@ -39,4 +39,4 @@ RUN adduser -s /bin/false node; exit 0
 EXPOSE 8080
 CMD [ "./start-docker.sh" ]
 
-HEALTHCHECK CMD sh DockerHealthcheck.sh
+HEALTHCHECK --start-period=10s CMD node docker_healthcheck.js

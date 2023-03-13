@@ -100,21 +100,26 @@ async function startTrilium() {
      */
 
     httpServer.keepAliveTimeout = 120000 * 5;
-    httpServer.listen(port, host);
+    const listenOnTcp = port !== 0;
+    if (listenOnTcp) {
+      httpServer.listen(port, host); // TCP socket.
+    } else {
+      httpServer.listen(host); // Unix socket.
+    }
     httpServer.on('error', error => {
-            if (error.syscall !== 'listen') {
+            if (!listenOnTcp || error.syscall !== 'listen') {
                 throw error;
             }
 
             // handle specific listen errors with friendly messages
             switch (error.code) {
                 case 'EACCES':
-                    console.error(`Port ${port} requires elevated privileges`);
+                    console.error(`Port ${port} requires elevated privileges. It's recommended to use port above 1024.`);
                     process.exit(1);
                     break;
 
                 case 'EADDRINUSE':
-                    console.error(`Port ${port} is already in use`);
+                    console.error(`Port ${port} is already in use. Most likely, another Trilium process is already running. You might try to find it, kill it, and try again.`);
                     process.exit(1);
                     break;
 
@@ -124,7 +129,13 @@ async function startTrilium() {
         }
     )
 
-    httpServer.on('listening', () => log.info(`Listening on port ${httpServer.address().port}`));
+    httpServer.on('listening', () => {
+        if (listenOnTcp) {
+            log.info(`Listening on port ${port}`)
+        } else {
+            log.info(`Listening on unix socket ${host}`)
+        }
+    });
 
     ws.init(httpServer, sessionParser);
 

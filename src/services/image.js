@@ -9,7 +9,6 @@ const sql = require('./sql');
 const jimp = require('jimp');
 const imageType = require('image-type');
 const sanitizeFilename = require('sanitize-filename');
-const noteRevisionService = require('./note_revisions');
 const isSvg = require('is-svg');
 const isAnimated = require('is-animated');
 const htmlSanitizer = require("./html_sanitizer");
@@ -82,7 +81,7 @@ function updateImage(noteId, uploadBuffer, originalName) {
             note.save();
 
             note.setContent(buffer);
-        })
+        });
     });
 }
 
@@ -123,7 +122,7 @@ function saveImage(parentNoteId, uploadBuffer, originalName, shrinkImageSwitch, 
             note.save();
 
             note.setContent(buffer);
-        })
+        });
     });
 
     return {
@@ -146,8 +145,7 @@ async function shrinkImage(buffer, originalName) {
         finalImageBuffer = await resize(buffer, jpegQuality);
     }
     catch (e) {
-        log.error(`Failed to resize image '${originalName}'
-Stack: ${e.stack}`);
+        log.error(`Failed to resize image '${originalName}', stack: ${e.stack}`);
 
         finalImageBuffer = buffer;
     }
@@ -164,6 +162,8 @@ Stack: ${e.stack}`);
 async function resize(buffer, quality) {
     const imageMaxWidthHeight = optionService.getOptionInt('imageMaxWidthHeight');
 
+    const start = Date.now();
+
     const image = await jimp.read(buffer);
 
     if (image.bitmap.width > image.bitmap.height && image.bitmap.width > imageMaxWidthHeight) {
@@ -178,7 +178,11 @@ async function resize(buffer, quality) {
     // when converting PNG to JPG we lose alpha channel, this is replaced by white to match Trilium white background
     image.background(0xFFFFFFFF);
 
-    return await image.getBufferAsync(jimp.MIME_JPEG);
+    const resultBuffer = await image.getBufferAsync(jimp.MIME_JPEG);
+
+    log.info(`Resizing image of ${resultBuffer.byteLength} took ${Date.now() - start}ms`);
+
+    return resultBuffer;
 }
 
 module.exports = {

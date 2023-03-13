@@ -25,7 +25,7 @@ function getOption(name) {
 }
 
 /**
- * @return {number}
+ * @returns {number}
  */
 function getOptionInt(name) {
     const val = getOption(name);
@@ -40,7 +40,7 @@ function getOptionInt(name) {
 }
 
 /**
- * @return {boolean}
+ * @returns {boolean}
  */
 function getOptionBool(name) {
     const val = getOption(name);
@@ -71,9 +71,9 @@ function setOption(name, value) {
 
 function createOption(name, value, isSynced) {
     // to avoid circular dependency, need to find better solution
-    const Option = require('../becca/entities/option');
+    const BOption = require('../becca/entities/boption');
 
-    new Option({
+    new BOption({
         name: name,
         value: value,
         isSynced: isSynced

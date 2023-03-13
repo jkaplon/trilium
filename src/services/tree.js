@@ -2,7 +2,7 @@
 
 const sql = require('./sql');
 const log = require('./log');
-const Branch = require('../becca/entities/branch');
+const BBranch = require('../becca/entities/bbranch');
 const entityChangesService = require('./entity_changes');
 const protectedSessionService = require('./protected_session');
 const becca = require('../becca/becca');
@@ -85,7 +85,7 @@ function getExistingBranch(parentNoteId, childNoteId) {
 function checkTreeCycle(parentNoteId, childNoteId) {
     const subtreeNoteIds = [];
 
-    // we'll load the whole sub tree - because the cycle can start in one of the notes in the sub tree
+    // we'll load the whole subtree - because the cycle can start in one of the notes in the subtree
     loadSubtreeNoteIds(childNoteId, subtreeNoteIds);
 
     function checkTreeCycleInner(parentNoteId) {
@@ -229,7 +229,7 @@ function sortNotesIfNeeded(parentNoteId) {
 }
 
 /**
- * @deprecated - this will be removed in the future
+ * @deprecated this will be removed in the future
  */
 function setNoteToParent(noteId, prefix, parentNoteId) {
     const parentNote = becca.getNote(parentNoteId);
@@ -270,7 +270,7 @@ function setNoteToParent(noteId, prefix, parentNoteId) {
             branch.save();
         }
         else {
-            new Branch({
+            new BBranch({
                 noteId: noteId,
                 parentNoteId: parentNoteId,
                 prefix: prefix

@@ -36,7 +36,7 @@ const TAB_TPL = `
     <div class="note-tab-drag-handle"></div>
     <div class="note-tab-icon"></div>
     <div class="note-tab-title"></div>
-    <div class="note-tab-close" title="Close tab" data-trigger-command="closeActiveTab"><span>×</span></div>
+    <div class="note-tab-close bx bx-x" title="Close tab" data-trigger-command="closeActiveTab"></div>
   </div>
 </div>`;
 
@@ -122,6 +122,7 @@ const TAB_ROW_TPL = `
     .tab-row-widget .note-tab .note-tab-wrapper {
         position: absolute;
         display: flex;
+        align-items: center;
         top: 0;
         bottom: 0;
         left: 0;
@@ -172,19 +173,13 @@ const TAB_ROW_TPL = `
     }
     
     .tab-row-widget .note-tab .note-tab-close {
-        flex-grow: 0;
-        flex-shrink: 0;
+        flex: 0 0 22px;
         border-radius: 50%;
         z-index: 100;
-        text-align: center;
         width: 22px;
-    }
-    
-    .tab-row-widget .note-tab .note-tab-close span {
-        font-size: 24px;
-        position: relative;
-        top: -6px;
+        height: 22px;
         cursor: pointer;
+        text-align: center;
     }
     
     .tab-row-widget .note-tab:hover .note-tab-wrapper {
@@ -465,7 +460,9 @@ export default class TabRowWidget extends BasicWidget {
     }
 
     updateTitle($tab, title) {
-        $tab.find('.note-tab-title').text(title);
+        $tab.attr("title", title)
+        $tab.find('.note-tab-title')
+            .text(title);
     }
 
     getTabById(ntxId) {
@@ -622,12 +619,13 @@ export default class TabRowWidget extends BasicWidget {
     updateTabById(ntxId) {
         const $tab = this.getTabById(ntxId);
 
-        const {note} = appContext.tabManager.getNoteContextById(ntxId);
+        const noteContext = appContext.tabManager.getNoteContextById(ntxId);
 
-        this.updateTab($tab, note);
+        this.updateTab($tab, noteContext);
     }
 
-    updateTab($tab, note) {
+    /** @param {NoteContext} noteContext */
+    updateTab($tab, noteContext) {
         if (!$tab.length) {
             return;
         }
@@ -637,8 +635,6 @@ export default class TabRowWidget extends BasicWidget {
                 $tab.removeClass(clazz);
             }
         }
-
-        const noteContext = appContext.tabManager.getNoteContextById(this.getTabId($tab));
 
         if (noteContext) {
             const hoistedNote = froca.getNoteFromCache(noteContext.hoistedNoteId);
@@ -656,12 +652,19 @@ export default class TabRowWidget extends BasicWidget {
             }
         }
 
+        const {note} = noteContext;
+
         if (!note) {
             this.updateTitle($tab, 'New tab');
             return;
         }
 
-        this.updateTitle($tab, note.title);
+        const viewMode = noteContext.viewScope?.viewMode;
+        const title = (viewMode && viewMode !== 'default')
+            ? `${viewMode}: ${note.title}`
+            : note.title;
+
+        this.updateTitle($tab, title);
 
         $tab.addClass(note.getCssClass());
         $tab.addClass(utils.getNoteTypeClass(note.type));
@@ -681,7 +684,7 @@ export default class TabRowWidget extends BasicWidget {
             ) {
                 const $tab = this.getTabById(noteContext.ntxId);
 
-                this.updateTab($tab, noteContext.note);
+                this.updateTab($tab, noteContext);
             }
         }
     }
@@ -690,7 +693,7 @@ export default class TabRowWidget extends BasicWidget {
         for (const noteContext of appContext.tabManager.noteContexts) {
             const $tab = this.getTabById(noteContext.ntxId);
 
-            this.updateTab($tab, noteContext.note);
+            this.updateTab($tab, noteContext);
         }
     }
 
@@ -700,7 +703,7 @@ export default class TabRowWidget extends BasicWidget {
         if ($tab) {
             const noteContext = appContext.tabManager.getNoteContextById(ntxId);
 
-            this.updateTab($tab, noteContext.note);
+            this.updateTab($tab, noteContext);
         }
     }
 }

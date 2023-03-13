@@ -12,7 +12,7 @@ export default class TypeWidget extends NoteContextAwareWidget {
     }
 
     /**
-     * @param {NoteShort} note
+     * @param {FNote} note
      */
     async doRefresh(note) {}
 
@@ -39,9 +39,9 @@ export default class TypeWidget extends NoteContextAwareWidget {
     }
 
     /**
-     * @returns {Promise|*} promise resolving content or directly the content
+     * @returns {Promise<Object>|*} promise resolving note data. Note data is an object with content.
      */
-    getContent() {}
+    getData() {}
 
     focus() {}
 

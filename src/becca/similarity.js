@@ -40,7 +40,7 @@ function filterUrlValue(value) {
 }
 
 /**
- * @param {Note} note
+ * @param {BNote} note
  */
 function buildRewardMap(note) {
     // Need to use Map instead of object: https://github.com/zadam/trilium/issues/1895
@@ -261,7 +261,7 @@ async function findSimilarNotes(noteId) {
 
         let counter = 0;
 
-        // when the title is very long then weight of each individual word should be lower
+        // when the title is very long then weight of each individual word should be lowered
         // also pretty important in e.g. long URLs in label values
         const lengthPenalization = 1 / Math.pow(text.length, 0.3);
 
@@ -448,7 +448,7 @@ async function findSimilarNotes(noteId) {
 }
 
 /**
- * Point of this is to break up long running sync process to avoid blocking
+ * Point of this is to break up long-running sync process to avoid blocking
  * see https://snyk.io/blog/nodejs-how-even-quick-async-functions-can-block-the-event-loop-starve-io/
  */
 function setImmediatePromise() {

@@ -17,21 +17,31 @@ class NoteFlatTextExp extends Expression {
         const beccaService = require('../../../becca/becca_service');
         const resultNoteSet = new NoteSet();
 
+        /**
+         * @param {BNote} note
+         * @param {string[]} tokens
+         * @param {string[]} path
+         */
         function searchDownThePath(note, tokens, path) {
             if (tokens.length === 0) {
                 const retPath = beccaService.getSomePath(note, path);
 
                 if (retPath) {
                     const noteId = retPath[retPath.length - 1];
-                    executionContext.noteIdToNotePath[noteId] = retPath;
 
-                    resultNoteSet.add(becca.notes[noteId]);
+                    if (!resultNoteSet.hasNoteId(noteId)) {
+                        // we could get here from multiple paths, the first one wins because the paths
+                        // are sorted by importance
+                        executionContext.noteIdToNotePath[noteId] = retPath;
+
+                        resultNoteSet.add(becca.notes[noteId]);
+                    }
                 }
 
                 return;
             }
 
-            if (!note.parents.length === 0 || note.noteId === 'root') {
+            if (note.parents.length === 0 || note.noteId === 'root') {
                 return;
             }
 
@@ -44,9 +54,11 @@ class NoteFlatTextExp extends Expression {
             }
 
             for (const attribute of note.ownedAttributes) {
+                const normalizedName = utils.normalize(attribute.name);
+                const normalizedValue = utils.normalize(attribute.value);
+
                 for (const token of tokens) {
-                    if (utils.normalize(attribute.name).includes(token)
-                        || utils.normalize(attribute.value).includes(token)) {
+                    if (normalizedName.includes(token) || normalizedValue.includes(token)) {
                         foundAttrTokens.push(token);
                     }
                 }
@@ -65,10 +77,10 @@ class NoteFlatTextExp extends Expression {
                 if (foundTokens.length > 0) {
                     const remainingTokens = tokens.filter(token => !foundTokens.includes(token));
 
-                    searchDownThePath(parentNote, remainingTokens, path.concat([note.noteId]));
+                    searchDownThePath(parentNote, remainingTokens, [...path, note.noteId]);
                 }
                 else {
-                    searchDownThePath(parentNote, tokens, path.concat([note.noteId]));
+                    searchDownThePath(parentNote, tokens, [...path, note.noteId]);
                 }
             }
         }
@@ -123,7 +135,7 @@ class NoteFlatTextExp extends Expression {
      * Returns noteIds which have at least one matching tokens
      *
      * @param {NoteSet} noteSet
-     * @return {String[]}
+     * @returns {BNote[]}
      */
     getCandidateNotes(noteSet) {
         const candidateNotes = [];

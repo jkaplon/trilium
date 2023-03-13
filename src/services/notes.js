@@ -14,9 +14,9 @@ const request = require('./request');
 const path = require('path');
 const url = require('url');
 const becca = require('../becca/becca');
-const Branch = require('../becca/entities/branch');
-const Note = require('../becca/entities/note');
-const Attribute = require('../becca/entities/attribute');
+const BBranch = require('../becca/entities/bbranch');
+const BNote = require('../becca/entities/bnote');
+const BAttribute = require('../becca/entities/battribute');
 const dayjs = require("dayjs");
 const htmlSanitizer = require("./html_sanitizer");
 const ValidationError = require("../errors/validation_error");
@@ -52,12 +52,22 @@ function deriveMime(type, mime) {
 }
 
 function copyChildAttributes(parentNote, childNote) {
+    const hasAlreadyTemplate = childNote.hasRelation('template');
+
     for (const attr of parentNote.getAttributes()) {
         if (attr.name.startsWith("child:")) {
-            new Attribute({
+            const name = attr.name.substr(6);
+
+            if (hasAlreadyTemplate && attr.type === 'relation' && name === 'template') {
+                // if the note already has a template, it means the template was chosen by the user explicitly
+                // in the menu. In that case we should override the default templates defined in the child: attrs
+                continue;
+            }
+
+            new BAttribute({
                 noteId: childNote.noteId,
                 type: attr.type,
-                name: attr.name.substr(6),
+                name: name,
                 value: attr.value,
                 position: attr.position,
                 isInheritable: attr.isInheritable
@@ -135,7 +145,7 @@ function getAndValidateParent(params) {
  * - {integer} notePosition - default is last existing notePosition in a parent + 10
  *
  * @param params
- * @return {{note: Note, branch: Branch}}
+ * @returns {{note: BNote, branch: BBranch}}
  */
 function createNewNote(params) {
     const parentNote = getAndValidateParent(params);
@@ -163,7 +173,7 @@ function createNewNote(params) {
             // TODO: think about what can happen if the note already exists with the forced ID
             //       I guess on DB it's going to be fine, but becca references between entities
             //       might get messed up (two Note instance for the same ID existing in the references)
-            note = new Note({
+            note = new BNote({
                 noteId: params.noteId, // optionally can force specific noteId
                 title: params.title,
                 isProtected: !!params.isProtected,
@@ -173,7 +183,7 @@ function createNewNote(params) {
 
             note.setContent(params.content);
 
-            branch = new Branch({
+            branch = new BBranch({
                 noteId: note.noteId,
                 parentNoteId: params.parentNoteId,
                 notePosition: params.notePosition !== undefined ? params.notePosition : getNewNotePosition(params.parentNoteId),
@@ -189,20 +199,19 @@ function createNewNote(params) {
             }
         }
 
-        scanForLinks(note);
-
-        copyChildAttributes(parentNote, note);
+        asyncPostProcessContent(note, params.content);
 
         if (params.templateNoteId) {
             if (!becca.getNote(params.templateNoteId)) {
                 throw new Error(`Template note '${params.templateNoteId}' does not exist.`);
             }
 
-            // could be already copied from the parent via `child:`, no need to have 2
-            if (!note.hasOwnedRelation('template', params.templateNoteId)) {
-                note.addRelation('template', params.templateNoteId);
-            }
+            note.addRelation('template', params.templateNoteId);
+
+            // no special handling for ~inherit since it doesn't matter if it's assigned with the note creation or later
         }
+
+        copyChildAttributes(parentNote, note);
 
         triggerNoteTitleChanged(note);
 
@@ -487,7 +496,7 @@ function downloadImages(noteId, content) {
                 if (updatedContent !== origContent) {
                     origNote.setContent(updatedContent);
 
-                    scanForLinks(origNote);
+                    asyncPostProcessContent(origNote, updatedContent);
 
                     eventService.emit(eventService.ENTITY_CHANGED, {
                         entityName: 'note_contents',
@@ -542,7 +551,7 @@ function saveLinks(note, content) {
             && existingLink.name === foundLink.name);
 
         if (!existingLink) {
-            const newLink = new Attribute({
+            const newLink = new BAttribute({
                 noteId: note.noteId,
                 type: 'relation',
                 name: foundLink.name,
@@ -551,7 +560,7 @@ function saveLinks(note, content) {
 
             existingLinks.push(newLink);
         }
-        // else the link exists so we don't need to do anything
+        // else the link exists, so we don't need to do anything
     }
 
     // marking links as deleted if they are not present on the page anymore
@@ -587,7 +596,7 @@ function saveNoteRevisionIfNeeded(note) {
     }
 }
 
-function updateNoteContent(noteId, content) {
+function updateNoteData(noteId, content) {
     const note = becca.getNote(noteId);
 
     if (!note.isContentAvailable()) {
@@ -643,7 +652,7 @@ function undeleteBranch(branchId, deleteId, taskContext) {
         return;
     }
 
-    new Branch(branch).save();
+    new BBranch(branch).save();
 
     taskContext.increaseProgressCount();
 
@@ -662,7 +671,7 @@ function undeleteBranch(branchId, deleteId, taskContext) {
 
         for (const attribute of attributes) {
             // relation might point to a note which hasn't been undeleted yet and would thus throw up
-            new Attribute(attribute).save({skipValidation: true});
+            new BAttribute(attribute).save({skipValidation: true});
         }
 
         const childBranchIds = sql.getColumn(`
@@ -679,7 +688,7 @@ function undeleteBranch(branchId, deleteId, taskContext) {
 }
 
 /**
- * @return return deleted branchIds of an undeleted parent note
+ * @returns return deleted branchIds of an undeleted parent note
  */
 function getUndeletedParentBranchIds(noteId, deleteId) {
     return sql.getColumn(`
@@ -692,13 +701,12 @@ function getUndeletedParentBranchIds(noteId, deleteId) {
                       AND parentNote.isDeleted = 0`, [noteId, deleteId]);
 }
 
-function scanForLinks(note) {
+function scanForLinks(note, content) {
     if (!note || !['text', 'relationMap'].includes(note.type)) {
         return;
     }
 
     try {
-        const content = note.getContent();
         const newContent = saveLinks(note, content);
 
         if (content !== newContent) {
@@ -708,6 +716,13 @@ function scanForLinks(note) {
     catch (e) {
         log.error(`Could not scan for links note ${note.noteId}: ${e.message} ${e.stack}`);
     }
+}
+
+/**
+ * Things which have to be executed after updating content, but asynchronously (separate transaction)
+ */
+async function asyncPostProcessContent(note, content) {
+    scanForLinks(note, content);
 }
 
 function eraseNotes(noteIdsToErase) {
@@ -865,7 +880,7 @@ function duplicateSubtreeInner(origNote, origBranch, newParentNoteId, noteIdMapp
     const newNoteId = noteIdMapping[origNote.noteId];
 
     function createDuplicatedBranch() {
-        return new Branch({
+        return new BBranch({
             noteId: newNoteId,
             parentNoteId: newParentNoteId,
             // here increasing just by 1 to make sure it's directly after original
@@ -874,7 +889,7 @@ function duplicateSubtreeInner(origNote, origBranch, newParentNoteId, noteIdMapp
     }
 
     function createDuplicatedNote() {
-        const newNote = new Note({
+        const newNote = new BNote({
             ...origNote,
             noteId: newNoteId,
             dateCreated: dateUtils.localNowDateTime(),
@@ -891,7 +906,7 @@ function duplicateSubtreeInner(origNote, origBranch, newParentNoteId, noteIdMapp
         newNote.setContent(content);
 
         for (const attribute of origNote.getOwnedAttributes()) {
-            const attr = new Attribute({
+            const attr = new BAttribute({
                 ...attribute,
                 attributeId: undefined,
                 noteId: newNote.noteId
@@ -909,6 +924,7 @@ function duplicateSubtreeInner(origNote, origBranch, newParentNoteId, noteIdMapp
         for (const childBranch of origNote.getChildBranches()) {
             duplicateSubtreeInner(childBranch.getNote(), childBranch, newNote.noteId, noteIdMapping);
         }
+
         return newNote;
     }
 
@@ -952,10 +968,9 @@ sqlInit.dbReady.then(() => {
 module.exports = {
     createNewNote,
     createNewNoteWithTarget,
-    updateNoteContent,
+    updateNoteData,
     undeleteNote,
     protectNoteRecursively,
-    scanForLinks,
     duplicateSubtree,
     duplicateSubtreeWithoutRoot,
     getUndeletedParentBranchIds,
@@ -963,5 +978,6 @@ module.exports = {
     eraseDeletedNotesNow,
     eraseNotesWithDeleteId,
     saveNoteRevisionIfNeeded,
-    downloadImages
+    downloadImages,
+    asyncPostProcessContent
 };

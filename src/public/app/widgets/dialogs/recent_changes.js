@@ -8,6 +8,7 @@ import hoistedNoteService from "../../services/hoisted_note.js";
 import BasicWidget from "../basic_widget.js";
 import dialogService from "../../services/dialog.js";
 import toastService from "../../services/toast.js";
+import ws from "../../services/ws.js";
 
 const TPL = `
 <div class="recent-changes-dialog modal fade mx-auto" tabindex="-1" role="dialog">
@@ -94,7 +95,7 @@ export default class RecentChangesDialog extends BasicWidget {
 
                                     this.$widget.modal('hide');
 
-                                    await froca.reloadNotes([change.noteId]);
+                                    await ws.waitForMaxKnownEntityChangeId();
 
                                     appContext.tabManager.getActiveContext().setNote(change.noteId);
                                 }

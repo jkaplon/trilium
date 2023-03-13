@@ -109,7 +109,16 @@ function handleContent(content) {
 function eraseEntity(entityChange, instanceId) {
     const {entityName, entityId} = entityChange;
 
-    if (!["notes", "note_contents", "branches", "attributes", "note_revisions", "note_revision_contents"].includes(entityName)) {
+    const entityNames = [
+        "notes",
+        "note_contents",
+        "branches",
+        "attributes",
+        "note_revisions",
+        "note_revision_contents"
+    ];
+
+    if (!entityNames.includes(entityName)) {
         log.error(`Cannot erase entity '${entityName}', id '${entityId}'`);
         return;
     }

@@ -10,7 +10,7 @@ import froca from "../services/froca.js";
 export default class RootCommandExecutor extends Component {
     editReadOnlyNoteCommand() {
         const noteContext = appContext.tabManager.getActiveContext();
-        noteContext.readOnlyTemporarilyDisabled = true;
+        noteContext.viewScope.readOnlyTemporarilyDisabled = true;
 
         appContext.triggerEvent("readOnlyTemporarilyDisabled", { noteContext });
     }
@@ -18,7 +18,7 @@ export default class RootCommandExecutor extends Component {
     async showSQLConsoleCommand() {
         const sqlConsoleNote = await dateNoteService.createSqlConsole();
 
-        const noteContext = await appContext.tabManager.openContextWithNote(sqlConsoleNote.noteId, true);
+        const noteContext = await appContext.tabManager.openContextWithNote(sqlConsoleNote.noteId, { activate: true });
 
         appContext.triggerEvent('focusOnDetail', {ntxId: noteContext.ntxId});
     }
@@ -32,7 +32,10 @@ export default class RootCommandExecutor extends Component {
         const activeNoteContext = appContext.tabManager.getActiveContext();
         const hoistedNoteId = activeNoteContext?.hoistedNoteId || 'root';
 
-        const noteContext = await appContext.tabManager.openContextWithNote(searchNote.noteId, true, null, hoistedNoteId);
+        const noteContext = await appContext.tabManager.openContextWithNote(searchNote.noteId, {
+            activate: true,
+            hoistedNoteId
+        });
 
         appContext.triggerCommand('focusOnSearchDefinition', {ntxId: noteContext.ntxId});
     }
@@ -73,7 +76,7 @@ export default class RootCommandExecutor extends Component {
     }
 
     async showBackendLogCommand() {
-        await appContext.tabManager.openContextWithNote('_backendLog', true);
+        await appContext.tabManager.openContextWithNote('_backendLog', { activate: true });
     }
 
     async showLaunchBarSubtreeCommand() {
@@ -88,8 +91,11 @@ export default class RootCommandExecutor extends Component {
         await this.showAndHoistSubtree('_hidden');
     }
 
-    async showOptionsCommand() {
-        await this.showAndHoistSubtree('_options');
+    async showOptionsCommand({section}) {
+        await appContext.tabManager.openContextWithNote(section || '_options', {
+            activate: true,
+            hoistedNoteId: '_options'
+        });
     }
 
     async showSQLConsoleHistoryCommand() {
@@ -101,6 +107,17 @@ export default class RootCommandExecutor extends Component {
     }
 
     async showAndHoistSubtree(subtreeNoteId) {
-        await appContext.tabManager.openContextWithNote(subtreeNoteId, true, null, subtreeNoteId);
+        await appContext.tabManager.openContextWithNote(subtreeNoteId, {
+            activate: true,
+            hoistedNoteId: subtreeNoteId
+        });
+    }
+
+    async showNoteSourceCommand() {
+        const notePath = appContext.tabManager.getActiveContextNotePath();
+
+        if (notePath) {
+            await appContext.tabManager.openContextWithNote(notePath, { activate: true, viewMode: 'source' });
+        }
     }
 }

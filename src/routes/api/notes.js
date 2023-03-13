@@ -53,11 +53,11 @@ function createNote(req) {
     };
 }
 
-function updateNoteContent(req) {
+function updateNoteData(req) {
     const {content} = req.body;
     const {noteId} = req.params;
 
-    return noteService.updateNoteContent(noteId, content);
+    return noteService.updateNoteData(noteId, content);
 }
 
 function deleteNote(req) {
@@ -327,7 +327,7 @@ function forceSaveNoteRevision(req) {
 
 module.exports = {
     getNote,
-    updateNoteContent,
+    updateNoteData,
     deleteNote,
     undeleteNote,
     createNote,

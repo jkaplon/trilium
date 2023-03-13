@@ -14,13 +14,21 @@ const becca = require("../../becca/becca");
 const RESOURCE_DIR = require('../../services/resource_dir').RESOURCE_DIR;
 const archiver = require('archiver');
 const log = require("../log");
+const TaskContext = require("../task_context");
+const ValidationError = require("../../errors/validation_error");
 
 /**
  * @param {TaskContext} taskContext
- * @param {Branch} branch
+ * @param {BBranch} branch
  * @param {string} format - 'html' or 'markdown'
+ * @param {object} res - express response
+ * @param {boolean} setHeaders
  */
-function exportToZip(taskContext, branch, format, res) {
+async function exportToZip(taskContext, branch, format, res, setHeaders = true) {
+    if (!['html', 'markdown'].includes(format)) {
+        throw new ValidationError(`Only 'html' and 'markdown' allowed as export format, '${format}' given`);
+    }
+
     const archive = archiver('zip', {
         zlib: { level: 9 } // Sets the compression level.
     });
@@ -50,7 +58,7 @@ function exportToZip(taskContext, branch, format, res) {
         }
     }
 
-    function getDataFileName(note, baseFileName, existingFileNames) {
+    function getDataFileName(type, mime, baseFileName, existingFileNames) {
         let fileName = baseFileName;
 
         let existingExtension = path.extname(fileName).toLowerCase();
@@ -62,24 +70,25 @@ function exportToZip(taskContext, branch, format, res) {
 
         // following two are handled specifically since we always want to have these extensions no matter the automatic detection
         // and/or existing detected extensions in the note name
-        if (note.type === 'text' && format === 'markdown') {
+        if (type === 'text' && format === 'markdown') {
             newExtension = 'md';
         }
-        else if (note.type === 'text' && format === 'html') {
+        else if (type === 'text' && format === 'html') {
             newExtension = 'html';
         }
-        else if (note.mime === 'application/x-javascript' || note.mime === 'text/javascript') {
+        else if (mime === 'application/x-javascript' || mime === 'text/javascript') {
             newExtension = 'js';
         }
         else if (existingExtension.length > 0) { // if the page already has an extension, then we'll just keep it
             newExtension = null;
         }
         else {
-            if (note.mime?.toLowerCase()?.trim() === "image/jpg") {
+            if (mime?.toLowerCase()?.trim() === "image/jpg") {
                 newExtension = 'jpg';
-            }
-            else {
-                newExtension = mimeTypes.extension(note.mime) || "dat";
+            } else if (mime?.toLowerCase()?.trim() === "text/mermaid") {
+                newExtension = 'txt';
+            } else {
+                newExtension = mimeTypes.extension(mime) || "dat";
             }
         }
 
@@ -158,7 +167,7 @@ function exportToZip(taskContext, branch, format, res) {
 
         // if it's a leaf then we'll export it even if it's empty
         if (available && (note.getContent().length > 0 || childBranches.length === 0)) {
-            meta.dataFileName = getDataFileName(note, baseFileName, existingFileNames);
+            meta.dataFileName = getDataFileName(note.type, note.mime, baseFileName, existingFileNames);
         }
 
         if (childBranches.length > 0) {
@@ -248,9 +257,12 @@ function exportToZip(taskContext, branch, format, res) {
     <link rel="stylesheet" href="${cssUrl}">
     <base target="_parent">
 </head>
-<body class="ck-content">
-  <h1>${utils.escapeHtml(title)}</h1>
-${content}
+<body>
+  <div class="content">
+      <h1>${utils.escapeHtml(title)}</h1>
+      
+      <div class="ck-content">${content}</div>
+  </div>
 </body>
 </html>`;
             }
@@ -299,7 +311,10 @@ ${markdownContent}`;
         if (noteMeta.dataFileName) {
             const content = prepareContent(noteMeta.title, note.getContent(), noteMeta);
 
-            archive.append(content, { name: filePathPrefix + noteMeta.dataFileName, date: dateUtils.parseDateTime(note.utcDateModified) });
+            archive.append(content, {
+                name: filePathPrefix + noteMeta.dataFileName,
+                date: dateUtils.parseDateTime(note.utcDateModified)
+            });
         }
 
         taskContext.increaseProgressCount();
@@ -466,15 +481,33 @@ ${markdownContent}`;
     const note = branch.getNote();
     const zipFileName = `${branch.prefix ? `${branch.prefix} - ` : ""}${note.getTitleOrProtected()}.zip`;
 
-    res.setHeader('Content-Disposition', utils.getContentDisposition(zipFileName));
-    res.setHeader('Content-Type', 'application/zip');
+    if (setHeaders) {
+        res.setHeader('Content-Disposition', utils.getContentDisposition(zipFileName));
+        res.setHeader('Content-Type', 'application/zip');
+    }
 
     archive.pipe(res);
-    archive.finalize();
+    await archive.finalize();
 
     taskContext.taskSucceeded();
 }
 
+async function exportToZipFile(noteId, format, zipFilePath) {
+    const fileOutputStream = fs.createWriteStream(zipFilePath);
+    const taskContext = new TaskContext('no-progress-reporting');
+
+    const note = becca.getNote(noteId);
+
+    if (!note) {
+        throw new ValidationError(`Note ${noteId} not found.`);
+    }
+
+    await exportToZip(taskContext, note.getParentBranches()[0], format, fileOutputStream, false);
+
+    log.info(`Exported '${noteId}' with format '${format}' to '${zipFilePath}'`);
+}
+
 module.exports = {
-    exportToZip
+    exportToZip,
+    exportToZipFile
 };

@@ -8,7 +8,7 @@ const noteService = require("../notes");
 const imageService = require("../image");
 const protectedSessionService = require('../protected_session');
 const htmlSanitizer = require("../html_sanitizer");
-const {sanitizeAttributeName} = require("../sanitize_attribute_name.js");
+const {sanitizeAttributeName} = require("../sanitize_attribute_name");
 
 /**
  * date format is e.g. 20181121T193703Z or 2013-04-14T16:19:00.000Z (Mac evernote, see #3496)
@@ -207,7 +207,7 @@ function importEnex(taskContext, file, parentNote) {
     });
 
     function updateDates(noteId, utcDateCreated, utcDateModified) {
-        // it's difficult to force custom dateCreated and dateModified to Note entity so we do it post-creation with SQL
+        // it's difficult to force custom dateCreated and dateModified to Note entity, so we do it post-creation with SQL
         sql.execute(`
                 UPDATE notes 
                 SET dateCreated = ?, 
@@ -335,7 +335,7 @@ function importEnex(taskContext, file, parentNote) {
         // save updated content with links to files/images
         noteEntity.setContent(content);
 
-        noteService.scanForLinks(noteEntity);
+        noteService.asyncPostProcessContent(noteEntity, content);
 
         updateDates(noteEntity.noteId, utcDateCreated, utcDateModified);
     }

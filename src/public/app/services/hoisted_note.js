@@ -35,16 +35,14 @@ async function isHoistedInHiddenSubtree() {
     }
 
     const hoistedNote = await froca.getNote(hoistedNoteId);
-    const hoistedNotePath = treeService.getSomeNotePath(hoistedNote);
-
-    return treeService.isNotePathInHiddenSubtree(hoistedNotePath);
+    return hoistedNote.isHiddenCompletely();
 }
 
 async function checkNoteAccess(notePath, noteContext) {
     const resolvedNotePath = await treeService.resolveNotePath(notePath, noteContext.hoistedNoteId);
 
     if (!resolvedNotePath) {
-        console.log(`Cannot activate ${notePath}`);
+        console.log(`Cannot activate '${notePath}'`);
         return false;
     }
 

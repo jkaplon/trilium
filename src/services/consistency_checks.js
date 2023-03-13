@@ -8,7 +8,7 @@ const syncMutexService = require('./sync_mutex');
 const cls = require('./cls');
 const entityChangesService = require('./entity_changes');
 const optionsService = require('./options');
-const Branch = require('../becca/entities/branch');
+const BBranch = require('../becca/entities/bbranch');
 const noteRevisionService = require('./note_revisions');
 const becca = require("../becca/becca");
 const utils = require("../services/utils");
@@ -216,8 +216,9 @@ class ConsistencyChecks {
     }
 
     findExistencyIssues() {
-        // principle for fixing inconsistencies is that if the note itself is deleted (isDeleted=true) then all related entities should be also deleted (branches, attributes)
-        // but if note is not deleted, then at least one branch should exist.
+        // principle for fixing inconsistencies is that if the note itself is deleted (isDeleted=true) then all related
+        // entities should be also deleted (branches, attributes), but if note is not deleted,
+        // then at least one branch should exist.
 
         // the order here is important - first we might need to delete inconsistent branches and after that
         // another check might create missing branch
@@ -269,7 +270,7 @@ class ConsistencyChecks {
               AND branches.branchId IS NULL
         `, ({noteId}) => {
             if (this.autoFix) {
-                const branch = new Branch({
+                const branch = new BBranch({
                     parentNoteId: 'root',
                     noteId: noteId,
                     prefix: 'recovered'
@@ -351,7 +352,7 @@ class ConsistencyChecks {
             ({noteId, isProtected, type, mime}) => {
                 if (this.autoFix) {
                     // it might be possible that the note_content is not available only because of the interrupted
-                    // sync and it will come later. It's therefore important to guarantee that this artifical
+                    // sync, and it will come later. It's therefore important to guarantee that this artifical
                     // record won't overwrite the real one coming from the sync.
                     const fakeDate = "2000-01-01 00:00:00Z";
 
@@ -411,15 +412,14 @@ class ConsistencyChecks {
                     SELECT note_revisions.noteRevisionId
                     FROM note_revisions
                       LEFT JOIN note_revision_contents USING (noteRevisionId)
-                    WHERE note_revision_contents.noteRevisionId IS NULL
-                      AND note_revisions.isProtected = 0`,
+                    WHERE note_revision_contents.noteRevisionId IS NULL`,
             ({noteRevisionId}) => {
                 if (this.autoFix) {
                     noteRevisionService.eraseNoteRevisions([noteRevisionId]);
 
                     this.reloadNeeded = true;
 
-                    logFix(`Note revision content '${noteRevisionId}' was created and set to erased since it did not exist.`);
+                    logFix(`Note revision content '${noteRevisionId}' was set to erased since it did not exist.`);
                 } else {
                     logError(`Note revision content '${noteRevisionId}' does not exist`);
                 }
@@ -619,6 +619,7 @@ class ConsistencyChecks {
         this.runEntityChangeChecks("notes", "noteId");
         this.runEntityChangeChecks("note_contents", "noteId");
         this.runEntityChangeChecks("note_revisions", "noteRevisionId");
+        this.runEntityChangeChecks("note_revision_contents", "noteRevisionId");
         this.runEntityChangeChecks("branches", "branchId");
         this.runEntityChangeChecks("attributes", "attributeId");
         this.runEntityChangeChecks("etapi_tokens", "etapiTokenId");

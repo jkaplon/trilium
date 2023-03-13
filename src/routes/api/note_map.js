@@ -30,6 +30,11 @@ function buildDescendantCountMap() {
     return noteIdToCountMap;
 }
 
+/**
+ * @param {BNote} note
+ * @param {int} depth
+ * @returns {string[]} noteIds
+ */
 function getNeighbors(note, depth) {
     if (depth === 0) {
         return [];
@@ -38,7 +43,7 @@ function getNeighbors(note, depth) {
     const retNoteIds = [];
 
     function isIgnoredRelation(relation) {
-        return ['relationMapLink', 'template', 'image', 'ancestor'].includes(relation.name);
+        return ['relationMapLink', 'template', 'inherit', 'image', 'ancestor'].includes(relation.name);
     }
 
     // forward links
@@ -126,7 +131,7 @@ function getLinkMap(req) {
     });
 
     const links = Object.values(becca.attributes).filter(rel => {
-        if (rel.type !== 'relation' || rel.name === 'relationMapLink' || rel.name === 'template') {
+        if (rel.type !== 'relation' || rel.name === 'relationMapLink' || rel.name === 'template' || rel.name === 'inherit') {
             return false;
         }
         else if (!noteIds.has(rel.noteId) || !noteIds.has(rel.value)) {
@@ -157,7 +162,7 @@ function getLinkMap(req) {
 
 function getTreeMap(req) {
     const mapRootNote = becca.getNote(req.params.noteId);
-    // if the map root itself has ignore (journal typically) then there wouldn't be anything to display so
+    // if the map root itself has ignore (journal typically) then there wouldn't be anything to display, so
     // we'll just ignore it
     const ignoreExcludeFromNoteMap = mapRootNote.hasLabel('excludeFromNoteMap');
     const subtree = mapRootNote.getSubtree({
@@ -259,6 +264,7 @@ function findExcerpts(sourceNote, referencedNoteId) {
             centerEl = centerEl.parentElement;
         }
 
+        /** @var {HTMLElement[]} */
         const excerptEls = [centerEl];
         let excerptLength = centerEl.textContent.length;
         let left = centerEl;

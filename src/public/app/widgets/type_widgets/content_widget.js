@@ -12,7 +12,7 @@ import VimKeyBindingsOptions from "./options/code_notes/vim_key_bindings.js";
 import WrapLinesOptions from "./options/code_notes/wrap_lines.js";
 import CodeAutoReadOnlySizeOptions from "./options/code_notes/code_auto_read_only_size.js";
 import CodeMimeTypesOptions from "./options/code_notes/code_mime_types.js";
-import ImageOptions from "./options/images.js";
+import ImageOptions from "./options/images/images.js";
 import SpellcheckOptions from "./options/spellcheck.js";
 import PasswordOptions from "./options/password.js";
 import EtapiOptions from "./options/etapi.js";

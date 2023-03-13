@@ -19,7 +19,6 @@ import options from "../services/options.js";
 import protectedSessionHolder from "../services/protected_session_holder.js";
 import dialogService from "../services/dialog.js";
 import shortcutService from "../services/shortcuts.js";
-import LauncherContextMenu from "../menus/launcher_context_menu.js";
 
 const TPL = `
 <div class="tree-wrapper">
@@ -641,7 +640,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
     }
 
     /**
-     * @param {NoteShort} parentNote
+     * @param {FNote} parentNote
      */
     prepareChildren(parentNote) {
         utils.assertArguments(parentNote);
@@ -704,7 +703,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
     }
 
     /**
-     * @param {Branch} branch
+     * @param {FBranch} branch
      * @param {boolean} forceLazy
      */
     prepareNode(branch, forceLazy = false) {
@@ -852,7 +851,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
     collapseTreeEvent() { this.collapseTree(); }
 
     /**
-     * @return {FancytreeNode|null}
+     * @returns {FancytreeNode|null}
      */
     getActiveNode() {
         return this.tree.getActiveNode();
@@ -861,7 +860,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
     /**
      * focused & not active node can happen during multiselection where the node is selected
      * but not activated (its content is not displayed in the detail)
-     * @return {FancytreeNode|null}
+     * @returns {FancytreeNode|null}
      */
     getFocusedNode() {
         return this.tree.getFocusNode();
@@ -922,7 +921,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
                 if (expand) {
                     await parentNode.setExpanded(true, {noAnimation: true});
 
-                    // although previous line should set the expanded status, it seems to happen asynchronously
+                    // although previous line should set the expanded status, it seems to happen asynchronously,
                     // so we need to make sure it is set properly before calling updateNode which uses this flag
                     const branch = froca.getBranch(parentNode.data.branchId);
                     branch.isExpanded = true;
@@ -932,7 +931,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
 
                 let foundChildNode = this.findChildNode(parentNode, childNoteId);
 
-                if (!foundChildNode) { // note might be recently created so we'll force reload and try again
+                if (!foundChildNode) { // note might be recently created, so we'll force reload and try again
                     await parentNode.load(true);
 
                     foundChildNode = this.findChildNode(parentNode, childNoteId);
@@ -940,7 +939,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
                     if (!foundChildNode) {
                         if (logErrors) {
                             // besides real errors this can be also caused by hiding of e.g. included images
-                            // these are real notes with real notePath, user can display them in a detail
+                            // these are real notes with real notePath, user can display them in a detail,
                             // but they don't have a node in the tree
 
                             const childNote = await froca.getNote(childNoteId);
@@ -1126,7 +1125,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
                     }
                 }
             }
-            else if (ecAttr.type === 'relation' && ecAttr.name === 'template') {
+            else if (ecAttr.type === 'relation' && (ecAttr.name === 'template' || ecAttr.name === 'inherit')) {
                 // missing handling of things inherited from template
                 noteIdsToReload.add(ecAttr.noteId);
             }
@@ -1135,7 +1134,8 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
 
                 if (note && note.getChildNoteIds().includes(ecAttr.value)) {
                     // there's new/deleted imageLink betwen note and its image child - which can show/hide
-                    // the image (if there is a imageLink relation between parent and child then it is assumed to be "contained" in the note and thus does not have to be displayed in the tree)
+                    // the image (if there is a imageLink relation between parent and child
+                    // then it is assumed to be "contained" in the note and thus does not have to be displayed in the tree)
                     noteIdsToReload.add(ecAttr.noteId);
                 }
             }

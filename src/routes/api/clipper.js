@@ -10,7 +10,7 @@ const ws = require('../../services/ws');
 const log = require('../../services/log');
 const utils = require('../../services/utils');
 const path = require('path');
-const Attribute = require('../../becca/entities/attribute');
+const BAttribute = require('../../becca/entities/battribute');
 const htmlSanitizer = require('../../services/html_sanitizer');
 const {formatAttrForSearch} = require("../../services/attribute_formatter");
 
@@ -75,7 +75,7 @@ function addClipping(req) {
 }
 
 function createNote(req) {
-    let {title, content, pageUrl, images, clipType} = req.body;
+    let {title, content, pageUrl, images, clipType, labels} = req.body;
 
     if (!title || !title.trim()) {
         title = `Clipped note from ${pageUrl}`;
@@ -99,6 +99,13 @@ function createNote(req) {
 
         note.setLabel('pageUrl', pageUrl);
         note.setLabel('iconClass', 'bx bx-globe');
+    }
+    
+    if (labels) {
+        for (const labelName in labels) {
+            const labelValue = htmlSanitizer.sanitize(labels[labelName]);
+            note.setLabel(labelName, labelValue);
+        }
     }
 
     const rewrittenContent = processContent(images, note, content);
@@ -130,13 +137,13 @@ function processContent(images, note, content) {
 
             const {note: imageNote, url} = imageService.saveImage(note.noteId, buffer, filename, true);
 
-            new Attribute({
+            new BAttribute({
                 noteId: imageNote.noteId,
                 type: 'label',
                 name: 'archived'
             }).save(); // so that these image notes don't show up in search / autocomplete
 
-            new Attribute({
+            new BAttribute({
                 noteId: note.noteId,
                 type: 'relation',
                 name: 'imageLink',
