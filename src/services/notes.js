@@ -21,9 +21,10 @@ const dayjs = require("dayjs");
 const htmlSanitizer = require("./html_sanitizer");
 const ValidationError = require("../errors/validation_error");
 const noteTypesService = require("./note_types");
+const fs = require("fs");
 
 function getNewNotePosition(parentNote) {
-    if (parentNote.hasLabel('newNotesOnTop')) {
+    if (parentNote.isLabelTruthy('newNotesOnTop')) {
         const minNotePos = parentNote.getChildBranches()
             .reduce((min, note) => Math.min(min, note.notePosition), 0);
 
@@ -375,7 +376,24 @@ const imageUrlToNoteIdMapping = {};
 
 async function downloadImage(noteId, imageUrl) {
     try {
-        const imageBuffer = await request.getImage(imageUrl);
+        let imageBuffer;
+
+        if (imageUrl.toLowerCase().startsWith("file://")) {
+            imageBuffer = await new Promise((res, rej) => {
+                const localFilePath = imageUrl.substr("file://".length);
+
+                return fs.readFile(localFilePath, (err, data) => {
+                    if (err) {
+                        rej(err);
+                    } else {
+                        res(data);
+                    }
+                });
+            });
+        } else {
+            imageBuffer = await request.getImage(imageUrl);
+        }
+
         const parsedUrl = url.parse(imageUrl);
         const title = path.basename(parsedUrl.pathname);
 
@@ -841,7 +859,7 @@ function duplicateSubtree(origNoteId, newParentNoteId) {
         throw new Error('Duplicating root is not possible');
     }
 
-    log.info(`Duplicating ${origNoteId} subtree into ${newParentNoteId}`);
+    log.info(`Duplicating '${origNoteId}' subtree into '${newParentNoteId}'`);
 
     const origNote = becca.notes[origNoteId];
     // might be null if orig note is not in the target newParentNoteId
@@ -919,7 +937,8 @@ function duplicateSubtreeInner(origNote, origBranch, newParentNoteId, noteIdMapp
                 attr.value = noteIdMapping[attr.value];
             }
 
-            attr.save();
+            // the relation targets may not be created yet, the mapping is pre-generated
+            attr.save({skipValidation: true});
         }
 
         for (const childBranch of origNote.getChildBranches()) {

@@ -1,6 +1,5 @@
 import server from "../../services/server.js";
 import froca from "../../services/froca.js";
-import treeService from "../../services/tree.js";
 import linkService from "../../services/link.js";
 import attributeAutocompleteService from "../../services/attribute_autocomplete.js";
 import noteAutocompleteService from "../../services/note_autocomplete.js";
@@ -9,6 +8,7 @@ import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import SpacedUpdate from "../../services/spaced_update.js";
 import utils from "../../services/utils.js";
 import shortcutService from "../../services/shortcuts.js";
+import appContext from "../../components/app_context.js";
 
 const TPL = `
 <div class="attr-detail">
@@ -285,7 +285,11 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         this.$title = this.$widget.find('.attr-detail-title');
 
         this.$inputName = this.$widget.find('.attr-input-name');
-        this.$inputName.on('keyup', () => this.userEditedAttribute());
+        this.$inputName.on('input', ev => {
+            if (!ev.originalEvent?.isComposing) { // https://github.com/zadam/trilium/pull/3812
+                this.userEditedAttribute();
+            }
+        });
         this.$inputName.on('change', () => this.userEditedAttribute());
         this.$inputName.on('autocomplete:closed', () => this.userEditedAttribute());
 
@@ -299,7 +303,11 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
         this.$rowValue = this.$widget.find('.attr-row-value');
         this.$inputValue = this.$widget.find('.attr-input-value');
-        this.$inputValue.on('keyup', () => this.userEditedAttribute());
+        this.$inputValue.on('input', ev => {
+            if (!ev.originalEvent?.isComposing) { // https://github.com/zadam/trilium/pull/3812
+                this.userEditedAttribute();
+            }
+        });
         this.$inputValue.on('change', () => this.userEditedAttribute());
         this.$inputValue.on('autocomplete:closed', () => this.userEditedAttribute());
         this.$inputValue.on('focus', () => {
@@ -328,7 +336,11 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
         this.$rowInverseRelation = this.$widget.find('.attr-row-inverse-relation');
         this.$inputInverseRelation = this.$widget.find('.attr-input-inverse-relation');
-        this.$inputInverseRelation.on('keyup', () => this.userEditedAttribute());
+        this.$inputInverseRelation.on('input', ev => {
+            if (!ev.originalEvent?.isComposing) { // https://github.com/zadam/trilium/pull/3812
+                this.userEditedAttribute();
+            }
+        });
 
         this.$rowTargetNote = this.$widget.find('.attr-row-target-note');
         this.$inputTargetNote = this.$widget.find('.attr-input-target-note');
@@ -586,9 +598,10 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
             const displayedResults = results.length <= DISPLAYED_NOTES ? results : results.slice(0, DISPLAYED_NOTES);
             const displayedNotes = await froca.getNotes(displayedResults.map(res => res.noteId));
+            const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
 
             for (const note of displayedNotes) {
-                const notePath = treeService.getSomeNotePath(note);
+                const notePath = note.getBestNotePathString(hoistedNoteId);
                 const $noteLink = await linkService.createNoteLink(notePath, {showNotePath: true});
 
                 this.$relatedNotesList.append(
