@@ -148,6 +148,9 @@ const TPL = `
 
 const MAX_SEARCH_RESULTS_IN_TREE = 100;
 
+// this has to be hanged on the actual elements to effectively intercept and stop click event
+const cancelClickPropagation = e => e.stopPropagation();
+
 export default class NoteTreeWidget extends NoteContextAwareWidget {
     constructor() {
         super();
@@ -559,7 +562,8 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
                 const isHoistedNote = activeNoteContext && activeNoteContext.hoistedNoteId === note.noteId && note.noteId !== 'root';
 
                 if (isHoistedNote) {
-                    const $unhoistButton = $('<span class="tree-item-button unhoist-button bx bx-door-open" title="Unhoist"></span>');
+                    const $unhoistButton = $('<span class="tree-item-button unhoist-button bx bx-door-open" title="Unhoist"></span>')
+                        .on("click", cancelClickPropagation);
 
                     // unhoist button is prepended since compared to other buttons this is not just convenience
                     // on the mobile interface - it's the only way to unhoist
@@ -567,19 +571,22 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
                 }
 
                 if (note.hasLabel('workspace') && !isHoistedNote) {
-                    const $enterWorkspaceButton = $('<span class="tree-item-button enter-workspace-button bx bx-door-open" title="Hoist this note (workspace)"></span>');
+                    const $enterWorkspaceButton = $('<span class="tree-item-button enter-workspace-button bx bx-door-open" title="Hoist this note (workspace)"></span>')
+                        .on("click", cancelClickPropagation);
 
                     $span.append($enterWorkspaceButton);
                 }
 
                 if (note.type === 'search') {
-                    const $refreshSearchButton = $('<span class="tree-item-button refresh-search-button bx bx-refresh" title="Refresh saved search results"></span>');
+                    const $refreshSearchButton = $('<span class="tree-item-button refresh-search-button bx bx-refresh" title="Refresh saved search results"></span>')
+                        .on("click", cancelClickPropagation);
 
                     $span.append($refreshSearchButton);
                 }
 
                 if (!['search', 'launcher'].includes(note.type) && !note.isOptions() && !note.isLaunchBarConfig()) {
-                    const $createChildNoteButton = $('<span class="tree-item-button add-note-button bx bx-plus" title="Create child note"></span>');
+                    const $createChildNoteButton = $('<span class="tree-item-button add-note-button bx bx-plus" title="Create child note"></span>')
+                        .on("click", cancelClickPropagation);
 
                     $span.append($createChildNoteButton);
                 }
@@ -995,21 +1002,21 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
         this.activityDetected();
 
         const oldActiveNode = this.getActiveNode();
-        let oldActiveNodeFocused = false;
 
-        if (oldActiveNode) {
-            oldActiveNodeFocused = oldActiveNode.hasFocus();
-
-            oldActiveNode.setActive(false);
-            oldActiveNode.setFocus(false);
-        }
-
-        if (this.noteContext
-            && this.noteContext.notePath
+        const newActiveNode = this.noteContext?.notePath
             && !this.noteContext.note?.isDeleted
             && (!treeService.isNotePathInHiddenSubtree(this.noteContext.notePath) || await hoistedNoteService.isHoistedInHiddenSubtree())
-        ) {
-            const newActiveNode = await this.getNodeFromPath(this.noteContext.notePath);
+            && await this.getNodeFromPath(this.noteContext.notePath);
+
+        if (newActiveNode !== oldActiveNode) {
+            let oldActiveNodeFocused = false;
+
+            if (oldActiveNode) {
+                oldActiveNodeFocused = oldActiveNode.hasFocus();
+
+                oldActiveNode.setActive(false);
+                oldActiveNode.setFocus(false);
+            }
 
             if (newActiveNode) {
                 if (!newActiveNode.isVisible()) {
@@ -1132,7 +1139,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
                 const note = froca.getNoteFromCache(ecAttr.noteId);
 
                 if (note && note.getChildNoteIds().includes(ecAttr.value)) {
-                    // there's new/deleted imageLink betwen note and its image child - which can show/hide
+                    // there's new/deleted imageLink between note and its image child - which can show/hide
                     // the image (if there is a imageLink relation between parent and child
                     // then it is assumed to be "contained" in the note and thus does not have to be displayed in the tree)
                     noteIdsToReload.add(ecAttr.noteId);
