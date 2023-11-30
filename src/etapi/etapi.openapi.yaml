@@ -33,13 +33,7 @@ paths:
           content:
             application/json; charset=utf-8:
               schema:
-                properties:
-                  note:
-                    $ref: '#/components/schemas/Note'
-                    description: Created note
-                  branch:
-                    $ref: '#/components/schemas/Branch'
-                    description: Created branch
+                $ref: '#/components/schemas/NoteWithBranch'
         default:
           description: unexpected error
           content:
@@ -133,7 +127,8 @@ paths:
             - targetRelationCount
             - targetRelationCountIncludingLinks
             - contentSize
-            - noteSize
+            - contentAndAttachmentsSize
+            - contentAndAttachmentsAndRevisionsSize
             - revisionCount
         - name: orderDirection
           in: query
@@ -291,7 +286,30 @@ paths:
             application/json; charset=utf-8:
               schema:
                 $ref: '#/components/schemas/Error'
-  /notes/{noteId}/note-revision:
+  /notes/{noteId}/import:
+    parameters:
+      - name: noteId
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/EntityId'
+    post:
+      description: Imports ZIP file into a given note.
+      operationId: importZip
+      responses:
+        '201':
+          description: note created
+          content:
+            application/json; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/NoteWithBranch'
+        default:
+          description: unexpected error
+          content:
+            application/json; charset=utf-8:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /notes/{noteId}/revision:
     parameters:
       - name: noteId
         in: path
@@ -308,7 +326,7 @@ paths:
           default: html
     post:
       description: Create a note revision for the given note
-      operationId: createNoteRevision
+      operationId: createRevision
       responses:
         '204':
           description: revision has been created
@@ -785,6 +803,12 @@ components:
         branchId:
           $ref: '#/components/schemas/EntityId'
           description: DON'T specify unless you want to force a specific branchId
+        dateCreated:
+          $ref: '#/components/schemas/LocalDateTime'
+          description: Local timestap of the note creation. Specify only if you want to override the default (current datetime in the current timezone/offset).
+        utcDateCreated:
+          $ref: '#/components/schemas/UtcDateTime'
+          description: UTC timestap of the note creation. Specify only if you want to override the default (current datetime).
     Note:
       type: object
       properties:
@@ -801,6 +825,9 @@ components:
         isProtected:
           type: boolean
           readOnly: true
+        blobId:
+          type: string
+          description: ID of the blob object which effectively serves as a content hash
         attributes:
           $ref: '#/components/schemas/AttributeList'
           readOnly: true
@@ -818,13 +845,11 @@ components:
           readOnly: true
         dateCreated:
           $ref: '#/components/schemas/LocalDateTime'
-          readOnly: true
         dateModified:
           $ref: '#/components/schemas/LocalDateTime'
           readOnly: true
         utcDateCreated:
           $ref: '#/components/schemas/UtcDateTime'
-          readOnly: true
         utcDateModified:
           $ref: '#/components/schemas/UtcDateTime'
           readOnly: true
@@ -852,6 +877,13 @@ components:
         utcDateModified:
           $ref: '#/components/schemas/UtcDateTime'
           readOnly: true
+    NoteWithBranch:
+      type: object
+      properties:
+        note:
+          $ref: '#/components/schemas/Note'
+        branch:
+          $ref: '#/components/schemas/Branch'
     Attribute:
       type: object
       description: Attribute (Label, Relation) is a key-value record attached to a note.
@@ -910,11 +942,11 @@ components:
     LocalDateTime:
       type: string
       pattern: '[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}[\+\-][0-9]{4}'
-      example: 2021-12-31 20:18:11.939+0100
+      example: 2021-12-31 20:18:11.930+0100
     UtcDateTime:
       type: string
       pattern: '[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z'
-      example: 2021-12-31 19:18:11.939Z
+      example: 2021-12-31 19:18:11.930Z
     AppInfo:
       type: object
       properties:

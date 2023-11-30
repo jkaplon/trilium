@@ -75,8 +75,6 @@ module.exports = {
         glob: true,
         log: true,
         EditorWatchdog: true,
-        baseApiUrl: true,
-        // \src\share\canvas_share.js
         React: true,
         appState: true,
         ExcalidrawLib: true,
@@ -93,17 +91,16 @@ module.exports = {
         renderMathInElement: true,
         // \src\public\app\widgets\type_widgets\editable_text.js
         BalloonEditor: true,
+        FancytreeNode: true,
         CKEditorInspector: true,
         // \src\public\app\widgets\type_widgets\editable_code.js
         CodeMirror: true,
         // \src\public\app\services\resizer.js
         Split: true,
-        // \src\public\app\services\note_content_renderer.js
+        // \src\public\app\services\content_renderer.js
         mermaid: true,
         // src\public\app\services\frontend_script_api.js
         dayjs: true,
-        // \src\public\app\widgets\dialogs\markdown_import.js
-        commonmark: true,
         // \src\public\app\widgets\note_map.js
         ForceGraph: true,
         // \src\public\app\setup.js
@@ -112,7 +109,9 @@ module.exports = {
         // src\public\app\services\utils.js
         logInfo: true,
         __non_webpack_require__: true,
-        //
+        describe: true,
+        it: true,
+        expect: true
     },
     parserOptions: {
         ecmaVersion: 'latest',

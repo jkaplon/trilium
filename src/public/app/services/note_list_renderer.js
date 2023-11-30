@@ -1,8 +1,9 @@
 import linkService from "./link.js";
-import noteContentRenderer from "./note_content_renderer.js";
+import contentRenderer from "./content_renderer.js";
 import froca from "./froca.js";
 import attributeRenderer from "./attribute_renderer.js";
 import libraryLoader from "./library_loader.js";
+import treeService from "./tree.js";
 
 const TPL = `
 <div class="note-list">
@@ -64,6 +65,10 @@ const TPL = `
         min-height: 0;
         height: 100%;
         padding-top: 10px;
+    }
+
+    .note-book-content .rendered-content {
+        height: 100%;
     }
 
     .note-book-header {
@@ -181,7 +186,7 @@ class NoteListRenderer {
         this.viewType = parentNote.getLabelValue('viewType');
 
         if (!['list', 'grid'].includes(this.viewType)) {
-            // when not explicitly set decide based on note type
+            // when not explicitly set, decide based on the note type
             this.viewType = parentNote.type === 'search' ? 'list' : 'grid';
         }
 
@@ -190,7 +195,7 @@ class NoteListRenderer {
         this.showNotePath = showNotePath;
     }
 
-    /** @returns {Set<string>} list of noteIds included (images, included notes) into a parent note and which
+    /** @returns {Set<string>} list of noteIds included (images, included notes) in the parent note and which
      *                        don't have to be shown in the note list. */
     getIncludedNoteIds() {
         const includedLinks = this.parentNote
@@ -226,7 +231,7 @@ class NoteListRenderer {
         const pageNotes = await froca.getNotes(pageNoteIds);
 
         for (const note of pageNotes) {
-            const $card = await this.renderNote(note, this.parentNote.hasLabel('expanded'));
+            const $card = await this.renderNote(note, this.parentNote.isLabelTruthy('expanded'));
 
             $container.append($card);
         }
@@ -248,11 +253,15 @@ class NoteListRenderer {
             if (pageCount < 20 || i <= 5 || pageCount - i <= 5 || Math.abs(this.page - i) <= 2) {
                 lastPrinted = true;
 
+                const startIndex = (i - 1) * this.pageSize + 1;
+                const endIndex = Math.min(this.noteIds.length, i * this.pageSize);
+
                 $pager.append(
                     i === this.page
                         ? $('<span>').text(i).css('text-decoration', 'underline').css('font-weight', "bold")
                         : $('<a href="javascript:">')
                             .text(i)
+                            .attr("title", `Page of ${startIndex} - ${endIndex}`)
                             .on('click', () => {
                                 this.page = i;
                                 this.renderList();
@@ -266,6 +275,9 @@ class NoteListRenderer {
                 lastPrinted = false;
             }
         }
+
+        // no need to distinguish "note" vs "notes" since in case of one result, there's no paging at all
+        $pager.append(`<span class="note-list-pager-total-count">(${this.noteIds.length} notes)</span>`);
     }
 
     async renderNote(note, expand = false) {
@@ -273,7 +285,7 @@ class NoteListRenderer {
 
         const {$renderedAttributes} = await attributeRenderer.renderNormalAttributes(note);
         const notePath = this.parentNote.type === 'search'
-            ? note.noteId // for search note parent we want to display non-search path
+            ? note.noteId // for search note parent, we want to display a non-search path
             : `${this.parentNote.noteId}/${note.noteId}`;
 
         const $card = $('<div class="note-book-card">')
@@ -283,8 +295,8 @@ class NoteListRenderer {
                     .append($expander)
                     .append($('<span class="note-icon">').addClass(note.getIcon()))
                     .append(this.viewType === 'grid'
-                        ? $('<span class="note-book-title">').text(note.title)
-                        : (await linkService.createNoteLink(notePath, {showTooltip: false, showNotePath: this.showNotePath}))
+                        ? $('<span class="note-book-title">').text(await treeService.getNoteTitle(note.noteId, this.parentNote.noteId))
+                        : (await linkService.createLink(notePath, {showTooltip: false, showNotePath: this.showNotePath}))
                             .addClass("note-book-title")
                     )
                     .append($renderedAttributes)
@@ -293,7 +305,7 @@ class NoteListRenderer {
         if (this.viewType === 'grid') {
             $card
                 .addClass("block-link")
-                .attr("data-note-path", notePath)
+                .attr("data-href", `#${notePath}`)
                 .on('click', e => linkService.goToLink(e));
         }
 
@@ -338,7 +350,7 @@ class NoteListRenderer {
         const $content = $('<div class="note-book-content">');
 
         try {
-            const {$renderedContent, type} = await noteContentRenderer.getRenderedContent(note, {
+            const {$renderedContent, type} = await contentRenderer.getRenderedContent(note, {
                 trim: this.viewType === 'grid' // for grid only short content is needed
             });
 
@@ -354,7 +366,7 @@ class NoteListRenderer {
             $content.append($renderedContent);
             $content.addClass(`type-${type}`);
         } catch (e) {
-            console.log(`Caught error while rendering note ${note.noteId} of type ${note.type}: ${e.message}, stack: ${e.stack}`);
+            console.log(`Caught error while rendering note '${note.noteId}' of type '${note.type}': ${e.message}, stack: ${e.stack}`);
 
             $content.append("rendering error");
         }

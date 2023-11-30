@@ -1,12 +1,12 @@
 "use strict";
 
-const Expression = require('./expression');
-const NoteSet = require('../note_set');
-const log = require('../../log');
-const becca = require('../../../becca/becca');
-const protectedSessionService = require('../../protected_session');
+const Expression = require('./expression.js');
+const NoteSet = require('../note_set.js');
+const log = require('../../log.js');
+const becca = require('../../../becca/becca.js');
+const protectedSessionService = require('../../protected_session.js');
 const striptags = require('striptags');
-const utils = require("../../utils");
+const utils = require('../../utils.js');
 
 const ALLOWED_OPERATORS = ['=', '!=', '*=*', '*=', '=*', '%='];
 
@@ -38,11 +38,11 @@ class NoteContentFulltextExp extends Expression {
         }
 
         const resultNoteSet = new NoteSet();
-        const sql = require('../../sql');
+        const sql = require('../../sql.js');
 
         for (const row of sql.iterateRows(`
                 SELECT noteId, type, mime, content, isProtected
-                FROM notes JOIN note_contents USING (noteId) 
+                FROM notes JOIN blobs USING (blobId) 
                 WHERE type IN ('text', 'code', 'mermaid') AND isDeleted = 0`)) {
 
             this.findInText(row, inputNoteSet, resultNoteSet);
@@ -91,7 +91,7 @@ class NoteContentFulltextExp extends Expression {
             const nonMatchingToken = this.tokens.find(token =>
                 !content.includes(token) &&
                 (
-                    // in case of default fulltext search we should consider both title, attrs and content
+                    // in case of default fulltext search, we should consider both title, attrs and content
                     // so e.g. "hello world" should match when "hello" is in title and "world" in content
                     !this.flatText
                     || !becca.notes[noteId].getFlatText().includes(token)
