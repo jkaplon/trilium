@@ -22,9 +22,10 @@ jobs:
           images: |
             ghcr.io/jkaplon/trilium-dev
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}-latest
-            type=match,pattern=(\d+.\d+).\d+\-beta,enable=${{ endsWith(github.ref, 'beta') }},group=1,suffix=-latest
+            #type=semver,pattern={{version}}
+            #type=semver,pattern={{major}}.{{minor}}-latest
+            #type=match,pattern=(\d+.\d+).\d+\-beta,enable=${{ endsWith(github.ref, 'beta') }},group=1,suffix=-latest
+            latest
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
         with:
