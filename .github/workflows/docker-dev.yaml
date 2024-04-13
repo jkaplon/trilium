@@ -1,0 +1,44 @@
+name: Publish JK Docker image
+on:
+  push:
+    branches:
+      - vimrc-label
+jobs:
+  push_to_registries:
+    name: Push Docker image to dev registry
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v3
+        with:
+          images: |
+            ghcr.io/jkaplon/trilium-dev
+          tags: |
+            #type=semver,pattern={{version}}
+            #type=semver,pattern={{major}}.{{minor}}-latest
+            #type=match,pattern=(\d+.\d+).\d+\-beta,enable=${{ endsWith(github.ref, 'beta') }},group=1,suffix=-latest
+            latest
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          install: true
+      - name: Log in to GitHub Docker Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create server-package.json
+        run: cat package.json | grep -v electron > server-package.json
+      - name: Build and Push
+        run: |
+          docker build . --tag ghcr.io/jkaplon/trilium-dev:latest
+          docker push ghcr.io/jkaplon/trilium-dev:latest
