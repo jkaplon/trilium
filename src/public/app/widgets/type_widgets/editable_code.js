@@ -2,6 +2,8 @@ import libraryLoader from "../../services/library_loader.js";
 import TypeWidget from "./type_widget.js";
 import keyboardActionService from "../../services/keyboard_actions.js";
 import options from "../../services/options.js";
+import froca from "../../services/froca.js";
+import searchService from "../../services/search.js";
 
 const TPL = `
 <div class="note-detail-code note-detail-printable">
@@ -57,6 +59,8 @@ export default class EditableCodeTypeWidget extends TypeWidget {
             lint: true,
             gutters: ["CodeMirror-lint-markers"],
             lineNumbers: true,
+            styleActiveLine: true,
+            extraKeys: {"Enter": "newlineAndIndentContinueMarkdownList"},
             tabindex: 300,
             // we line wrap partly also because without it horizontal scrollbar displays only when you scroll
             // all the way to the bottom of the note. With line wrap, there's no horizontal scrollbar so no problem
@@ -64,6 +68,12 @@ export default class EditableCodeTypeWidget extends TypeWidget {
             dragDrop: false, // with true the editor inlines dropped files which is not what we expect
             placeholder: "Type the content of your code note here...",
         });
+        
+        if ( options.is("vimKeymapEnabled") ) {
+            const vimrcNoteArr = await searchService.searchForNotes("#vimrc");
+            const vimrc = await vimrcNoteArr[0].getContent();
+            new Function(vimrc)();
+        }
 
         this.codeEditor.on('change', () => this.spacedUpdate.scheduleUpdate());
     }
