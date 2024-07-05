@@ -31,6 +31,7 @@ RUN set -x \
 
 # Some setup tools need to be kept
 RUN apk add --no-cache su-exec shadow
+RUN apk add alpine-conf && setup-timezone -z America/New_York
 
 # Add application user and setup proper volume permissions
 RUN adduser -s /bin/false node; exit 0
