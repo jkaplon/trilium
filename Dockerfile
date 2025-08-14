@@ -25,6 +25,7 @@ RUN set -x \
     && apk del .build-dependencies \
     && npm run webpack \
     && npm prune --omit=dev \
+    && npm cache clean --force \
     && cp src/public/app/share.js src/public/app-dist/. \
     && cp -r src/public/app/doc_notes src/public/app-dist/. \
     && rm -rf src/public/app
