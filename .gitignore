@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <<<<<<< Updated upstream
 .DS_Store
 node_modules/
@@ -43,6 +44,34 @@ node_modules
 /libpeerconnection.log
 npm-debug.log
 yarn-error.log
+=======
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+
+# compiled output
+dist
+tmp
+out-tsc
+
+# dependencies
+node_modules
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+>>>>>>> 7a1ec266ad04d47ba09ec3f2d2997155fb6a3d66
 testem.log
 /typings
 
@@ -65,5 +94,9 @@ upload
 *.tsbuildinfo
 
 /result
+<<<<<<< HEAD
 .svelte-kit
 >>>>>>> Stashed changes
+=======
+.svelte-kit
+>>>>>>> 7a1ec266ad04d47ba09ec3f2d2997155fb6a3d66
