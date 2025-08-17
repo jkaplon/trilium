@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # !!! Don't try to build this Dockerfile directly, run it through bin/build-docker.sh script !!!
 FROM node:18.18.2-alpine
 
@@ -42,3 +43,17 @@ EXPOSE 8080
 CMD [ "./start-docker.sh" ]
 
 HEALTHCHECK --start-period=10s CMD exec su-exec node node docker_healthcheck.js
+=======
+FROM node:22.17.1-alpine
+RUN npm install -g pnpm@latest-10
+EXPOSE 8080
+EXPOSE 4200
+WORKDIR /usr/src/app
+#COPY ./apps/server/start-docker.sh /usr/src
+#CMD [ "sh", "./start-docker.sh" ]
+#CMD [ "node", "./apps/server/dist/main.cjs" ]
+# last one might have incorrect production mode assumption about
+# existence of /apps/server/dist/public folder.
+CMD [ "pnpm","run", "server:start"]
+# CORS errors in browser dev tools, running in dev mode may not be possible in docker
+>>>>>>> Stashed changes
